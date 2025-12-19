@@ -489,41 +489,68 @@ void loop() {
                 targetIsHome = false;
             }
 
-            if ((hasHome || !targetIsHome) && gps.location.isValid()) {
-                double dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
-                double bearing = gps.courseTo(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
-                
-                // Distance
-                gfx->setCursor(20, 60);
-                gfx->setTextColor(GREEN);
-                gfx->setTextSize(3);
-                if (dist < 1000) {
-                    gfx->printf("%.0f m", dist);
-                } else {
-                    gfx->printf("%.2f km", dist / 1000.0);
+            if (currentMode == MODE_RECORDING) {
+                // 1. Distance Info (if GPS & Home)
+                if (gps.location.isValid() && hasHome) {
+                    double dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
+                    gfx->setCursor(20, 60);
+                    gfx->setTextColor(WHITE);
+                    gfx->setTextSize(3);
+                    if (dist < 1000) gfx->printf("%.0f m", dist);
+                    else gfx->printf("%.2f km", dist / 1000.0);
+                    
+                    gfx->setCursor(20, 90);
+                    gfx->setTextSize(1);
+                    gfx->setTextColor(YELLOW);
+                    gfx->print("Dist to Home");
+                } else if (!hasHome) {
+                    gfx->setCursor(20, 100);
+                    gfx->setTextColor(RED);
+                    gfx->setTextSize(2);
+                    gfx->print("Set Home!");
                 }
-                
-                // Target Label
-                gfx->setCursor(20, 90);
-                gfx->setTextSize(1);
-                gfx->setTextColor(YELLOW);
-                if (targetIsHome) gfx->print("To: HOME");
-                else gfx->printf("To: WP #%d", targetBreadcrumbIndex + 1);
 
-                // Direction Arrow
-                // Calculate relative bearing
-                int relBearing = (int)bearing - currentHeading;
+                // 2. Compass Arrow (Always, Green, Points North)
+                int relBearing = 0 - currentHeading;
                 if (relBearing < 0) relBearing += 360;
+                drawArrow(SCREEN_WIDTH/2, 160, 40, relBearing, GREEN);
                 
-                // Draw Arrow in center
-                uint16_t arrowColor = (currentMode == MODE_RECORDING) ? GREEN : RED;
-                drawArrow(SCREEN_WIDTH/2, 160, 40, relBearing, arrowColor);
-                
-            } else if (!hasHome && currentMode == MODE_RECORDING) {
-                gfx->setCursor(20, 100);
-                gfx->setTextColor(RED);
+                // N Label
+                float angleRad = (relBearing - 90) * PI / 180.0;
+                int nx = (SCREEN_WIDTH/2) + 55 * cos(angleRad);
+                int ny = 160 + 55 * sin(angleRad);
+                gfx->setCursor(nx-6, ny-6);
+                gfx->setTextColor(GREEN);
                 gfx->setTextSize(2);
-                gfx->print("Set Home!");
+                gfx->print("N");
+
+            } else { // MODE_BACKTRACKING
+                if (gps.location.isValid()) {
+                    double dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
+                    double bearing = gps.courseTo(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
+                    
+                    gfx->setCursor(20, 60);
+                    gfx->setTextColor(GREEN);
+                    gfx->setTextSize(3);
+                    if (dist < 1000) gfx->printf("%.0f m", dist);
+                    else gfx->printf("%.2f km", dist / 1000.0);
+                    
+                    gfx->setCursor(20, 90);
+                    gfx->setTextSize(1);
+                    gfx->setTextColor(YELLOW);
+                    if (targetIsHome) gfx->print("To: HOME");
+                    else gfx->printf("To: WP #%d", targetBreadcrumbIndex + 1);
+                    
+                    // Direction Arrow (Red, Points to Target)
+                    int relBearing = (int)bearing - currentHeading;
+                    if (relBearing < 0) relBearing += 360;
+                    drawArrow(SCREEN_WIDTH/2, 160, 40, relBearing, RED);
+                } else {
+                    gfx->setCursor(20, 100);
+                    gfx->setTextColor(RED);
+                    gfx->setTextSize(2);
+                    gfx->print("No GPS Fix");
+                }
             }
             
             // Footer
