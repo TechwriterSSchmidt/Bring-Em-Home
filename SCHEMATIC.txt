@@ -1,5 +1,6 @@
 Bring Em Home - Connection Schematic
 =====================================
+Reference: https://files.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.47/ESP32-S3-Touch-LCD-1.47-Schematic.pdf
 
 Hardware Components:
 - Waveshare ESP32-S3 Touch LCD 1.47" Board

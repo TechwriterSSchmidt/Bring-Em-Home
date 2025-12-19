@@ -1,415 +1,648 @@
-/**
- * Bring Em Home - GPS Navigation Device
- * 
- * A device to guide Emelie back to her starting location when lost on hikes.
- * 
- * Hardware:
- * - ESP32-S3 with Waveshare 1.47" Touch LCD Display
- * - HGLRC M100-5883 M10 GPS Module with Compass (HMC5883L)
- * 
- * Features:
- * - Save home position with button press
- * - Display current GPS coordinates
- * - Calculate and display distance/bearing to home
- * - Visual compass display
- */
+﻿// ESP32-S3-LCD-1.3 - Bring Em Home Project
+// Using Arduino_GFX library with ST7789 driver
+// Hardware: Waveshare ESP32-S3-LCD-1.3 (240x240)
+// Pinout based on nishad2m8/WS-1.3
 
 #include <Arduino.h>
-#include <SPI.h>
+#include <Arduino_GFX_Library.h>
 #include <Wire.h>
-#include <TinyGPSPlus.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ST7789.h>
-#include <Adafruit_HMC5883_U.h>
+#include <TinyGPS++.h>
+#include <MechaQMC5883.h>
 #include <Preferences.h>
+#include <vector>
+#include <WiFi.h> // For power management
 
-// Pin definitions for Waveshare ESP32-S3 1.47" Touch LCD
-#define TFT_CS     10
-#define TFT_RST    14
-#define TFT_DC     13
-#define TFT_MOSI   11
-#define TFT_SCLK   12
-#define TFT_BLK    38
+// RGB565 Color definitions
+#define BLACK   0x0000
+#define WHITE   0xFFFF
+#define RED     0xF800
+#define GREEN   0x07E0
+#define BLUE    0x001F
+#define YELLOW  0xFFE0
+#define CYAN    0x07FF
+#define MAGENTA 0xF81F
 
-// GPS Serial (UART1)
-#define GPS_RX     18
-#define GPS_TX     17
+// Elegant Palette
+#define C_GOLD       0xFEA0 
+#define C_EMERALD    0x05E6
+#define C_RUBY       0xC804
+#define C_SILVER     0xC618
+#define C_DARK       0x10A2
 
-// I2C for Compass (HMC5883L)
-#define I2C_SDA    8
-#define I2C_SCL    9
+// ESP32-S3-LCD-1.3 Pin Configuration
+// Based on nishad2m8/WS-1.3 User_Setup.h
+#define TFT_MOSI  41
+#define TFT_SCK   40
+#define TFT_CS    39
+#define TFT_DC    38
+#define TFT_RST   42
+#define TFT_BL    45 
+#define BUTTON_PIN 14 // External waterproof button
+#define VIB_PIN 13    // Vibration Motor
 
-// Button pins
-#define BTN_SAVE   0   // Boot button to save home position
-#define BTN_MODE   1   // Mode button
+// Sensor Pins
+#define GPS_RX 17
+#define GPS_TX 18
+#define I2C_SDA 8
+#define I2C_SCL 9
 
-// Display settings
-#define SCREEN_WIDTH  172
-#define SCREEN_HEIGHT 320
+// Display dimensions
+#define SCREEN_WIDTH  240
+#define SCREEN_HEIGHT 240
 
-// Compass arrow display position
-#define COMPASS_CENTER_X  280
-#define COMPASS_CENTER_Y  100
-#define COMPASS_RADIUS    30
+// Power Management
+#define DISPLAY_TIMEOUT 300000 // 5 minutes in milliseconds
+unsigned long lastInteractionTime = 0;
+bool isDisplayOn = true;
+bool lastButtonState = HIGH;
+unsigned long buttonPressStartTime = 0;
+bool isLongPressHandled = false;
 
-// Create objects
-Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
+// Vibration Control
+unsigned long vibrationStartTime = 0;
+bool isVibrating = false;
+
+// GPS Power Management (UBX Commands for u-blox M10/M8)
+void setGPSPower(bool on) {
+    if (on) {
+        // Wake up (send dummy bytes)
+        Serial1.write(0xFF);
+        delay(100);
+    } else {
+        // Send UBX-RXM-PMREQ (Backup Mode)
+        // Header: 0xB5 0x62, Class: 0x02, ID: 0x41, Len: 0x08
+        // Payload: Duration(0=Inf), Flags(2=Backup)
+        uint8_t packet[] = {
+            0xB5, 0x62, 0x02, 0x41, 0x08, 0x00, 
+            0x00, 0x00, 0x00, 0x00, 
+            0x02, 0x00, 0x00, 0x00,
+            0x4D, 0x3B // Checksum (Calculated)
+        };
+        Serial1.write(packet, sizeof(packet));
+    }
+}
+
+void triggerVibration() {
+    digitalWrite(VIB_PIN, HIGH);
+    vibrationStartTime = millis();
+    isVibrating = true;
+}
+
+// Objects
 TinyGPSPlus gps;
-Adafruit_HMC5883_Unified mag = Adafruit_HMC5883_Unified(12345);
+MechaQMC5883 qmc;
 Preferences preferences;
 
-// GPS Serial
-HardwareSerial gpsSerial(1);
+// App Modes
+enum AppMode {
+    MODE_RECORDING,
+    MODE_BACKTRACKING
+};
+AppMode currentMode = MODE_RECORDING;
 
-// Home position
+// Navigation Data
 double homeLat = 0.0;
 double homeLon = 0.0;
-bool homeSet = false;
+bool hasHome = false;
+int currentHeading = 0;
+unsigned long startTime = 0;
 
-// Current position
-double currentLat = 0.0;
-double currentLon = 0.0;
-bool gpsValid = false;
+// Breadcrumbs
+struct Breadcrumb {
+    double lat;
+    double lon;
+};
+std::vector<Breadcrumb> breadcrumbs;
+const double BREADCRUMB_DISTANCE = 250.0; // Meters
+int targetBreadcrumbIndex = -1; // For backtracking
 
-// Compass
-float heading = 0.0;
-float bearingToHome = 0.0;
-float distanceToHome = 0.0;
+// Button Logic (Multi-click)
+int clickCount = 0;
+unsigned long lastClickTime = 0;
+const int CLICK_DELAY = 400; // ms to wait for double click
 
-// Display update timing
-unsigned long lastDisplayUpdate = 0;
-const unsigned long DISPLAY_UPDATE_INTERVAL = 500; // Update every 500ms
+// Create display bus and display object
+Arduino_DataBus *bus = new Arduino_ESP32SPI(
+    TFT_DC,   // DC
+    TFT_CS,   // CS
+    TFT_SCK,  // SCK
+    TFT_MOSI, // MOSI
+    -1        // MISO (not used)
+);
 
-// Button state
-bool lastBtnSaveState = HIGH;
-unsigned long lastDebounceTime = 0;
-const unsigned long DEBOUNCE_DELAY = 50;
+// ST7789 240x240
+Arduino_GFX *gfx = new Arduino_ST7789(
+    bus,
+    TFT_RST,      // RST
+    0,            // rotation (0 = portrait)
+    true,         // IPS panel
+    SCREEN_WIDTH, // width = 240
+    SCREEN_HEIGHT,// height = 240
+    0,            // col_offset1
+    0,            // row_offset1
+    0,            // col_offset2
+    0             // row_offset2
+);
 
-// Home saved feedback state
-bool showHomeSavedFeedback = false;
-unsigned long homeSavedFeedbackTime = 0;
-const unsigned long HOME_SAVED_FEEDBACK_DURATION = 1000; // 1 second
+Arduino_Canvas *canvas = nullptr;
+Arduino_GFX *drawTarget = nullptr;
+
+// Helper: Draw Rotated Arrow (Fancy Needle)
+void drawArrow(Arduino_GFX *dst, int cx, int cy, int r, float angleDeg, uint16_t color) {
+    float angleRad = (angleDeg - 90) * PI / 180.0; // -90 to point up at 0 deg
+    
+    // Tip
+    int x1 = cx + r * cos(angleRad);
+    int y1 = cy + r * sin(angleRad);
+    
+    // Tail (indented)
+    int x2 = cx - (r * 0.3) * cos(angleRad);
+    int y2 = cy - (r * 0.3) * sin(angleRad);
+    
+    // Side 1 (Right)
+    int x3 = cx + (r * 0.35) * cos(angleRad + PI/2);
+    int y3 = cy + (r * 0.35) * sin(angleRad + PI/2);
+
+    // Side 2 (Left)
+    int x4 = cx + (r * 0.35) * cos(angleRad - PI/2);
+    int y4 = cy + (r * 0.35) * sin(angleRad - PI/2);
+    
+    // Draw two triangles for the needle
+    dst->fillTriangle(x1, y1, x3, y3, x2, y2, color);
+    dst->fillTriangle(x1, y1, x4, y4, x2, y2, color);
+    
+    // Center Dot
+    dst->fillCircle(cx, cy, 3, C_GOLD);
+}
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println("Bring Em Home - Starting...");
-
-  // Initialize buttons
-  pinMode(BTN_SAVE, INPUT_PULLUP);
-  pinMode(BTN_MODE, INPUT_PULLUP);
-  
-  // Initialize backlight
-  pinMode(TFT_BLK, OUTPUT);
-  digitalWrite(TFT_BLK, HIGH); // Turn on backlight
-
-  // Initialize display
-  tft.init(SCREEN_WIDTH, SCREEN_HEIGHT);
-  tft.setRotation(1); // Landscape
-  tft.fillScreen(ST77XX_BLACK);
-  tft.setTextColor(ST77XX_WHITE);
-  tft.setTextSize(1);
-  
-  tft.setCursor(10, 10);
-  tft.println("Bring Em Home");
-  tft.println("Initializing...");
-
-  // Initialize I2C for compass
-  Wire.begin(I2C_SDA, I2C_SCL);
-  
-  // Initialize compass
-  if (mag.begin()) {
-    Serial.println("HMC5883L detected!");
-    tft.println("Compass: OK");
-  } else {
-    Serial.println("No HMC5883L detected");
-    tft.println("Compass: FAIL");
-  }
-
-  // Initialize GPS
-  gpsSerial.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
-  tft.println("GPS: Starting...");
-  Serial.println("GPS initialized");
-
-  // Load saved home position
-  preferences.begin("bring-em-home", false);
-  homeLat = preferences.getDouble("homeLat", 0.0);
-  homeLon = preferences.getDouble("homeLon", 0.0);
-  
-  if (homeLat != 0.0 || homeLon != 0.0) {
-    homeSet = true;
-    Serial.printf("Loaded home: %.6f, %.6f\n", homeLat, homeLon);
-    tft.println("Home pos loaded");
-  }
-  preferences.end();
-
-  delay(2000);
-  tft.fillScreen(ST77XX_BLACK);
-}
-
-void saveHomePosition() {
-  if (gpsValid) {
-    homeLat = currentLat;
-    homeLon = currentLon;
-    homeSet = true;
+    Serial.begin(115200);
     
-    preferences.begin("bring-em-home", false);
-    preferences.putDouble("homeLat", homeLat);
-    preferences.putDouble("homeLon", homeLon);
-    preferences.end();
-    
-    Serial.printf("Home saved: %.6f, %.6f\n", homeLat, homeLon);
-    
-    // Trigger non-blocking visual feedback
-    showHomeSavedFeedback = true;
-    homeSavedFeedbackTime = millis();
-  }
-}
+    // Power Optimization: Turn off Radios
+    WiFi.mode(WIFI_OFF);
+    btStop();
+    setCpuFrequencyMhz(240); // Start with high performance for UI
 
-void readGPS() {
-  while (gpsSerial.available() > 0) {
-    char c = gpsSerial.read();
-    gps.encode(c);
-    
-    if (gps.location.isUpdated()) {
-      currentLat = gps.location.lat();
-      currentLon = gps.location.lng();
-      gpsValid = true;
+    // Wakeup Safety Check (Prevent accidental pocket activation)
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0) {
+        // Woke up by button. Verify hold duration.
+        unsigned long wakeStart = millis();
+        bool wakeConfirmed = false;
+        
+        // Wait for user to hold button for 2 seconds
+        while (digitalRead(BUTTON_PIN) == LOW) {
+            if (millis() - wakeStart > 2000) { 
+                wakeConfirmed = true;
+                break;
+            }
+            delay(10);
+        }
+        
+        if (!wakeConfirmed) {
+            // Button released too early -> Go back to sleep immediately
+            esp_sleep_enable_ext0_wakeup((gpio_num_t)BUTTON_PIN, 0);
+            esp_deep_sleep_start();
+        }
     }
-  }
-}
 
-void readCompass() {
-  sensors_event_t event;
-  mag.getEvent(&event);
-  
-  // Calculate heading
-  heading = atan2(event.magnetic.y, event.magnetic.x);
-  
-  // Convert to degrees
-  heading = heading * 180.0 / PI;
-  
-  // Normalize to 0-360
-  if (heading < 0) {
-    heading += 360.0;
-  }
-}
-
-void calculateNavigation() {
-  if (!gpsValid || !homeSet) {
-    return;
-  }
-  
-  // Calculate distance using Haversine formula
-  double dLat = (homeLat - currentLat) * PI / 180.0;
-  double dLon = (homeLon - currentLon) * PI / 180.0;
-  
-  double a = sin(dLat/2) * sin(dLat/2) +
-             cos(currentLat * PI / 180.0) * cos(homeLat * PI / 180.0) *
-             sin(dLon/2) * sin(dLon/2);
-  double c = 2 * atan2(sqrt(a), sqrt(1-a));
-  distanceToHome = 6371000 * c; // Earth radius in meters
-  
-  // Calculate bearing
-  double y = sin(dLon) * cos(homeLat * PI / 180.0);
-  double x = cos(currentLat * PI / 180.0) * sin(homeLat * PI / 180.0) -
-             sin(currentLat * PI / 180.0) * cos(homeLat * PI / 180.0) * cos(dLon);
-  bearingToHome = atan2(y, x) * 180.0 / PI;
-  
-  // Normalize to 0-360
-  if (bearingToHome < 0) {
-    bearingToHome += 360.0;
-  }
-}
-
-void drawCompassArrow(int centerX, int centerY, int radius, float angle, uint16_t color) {
-  float rad = (angle - 90) * PI / 180.0; // Adjust so 0° is up
-  
-  // Arrow tip
-  int x1 = centerX + radius * cos(rad);
-  int y1 = centerY + radius * sin(rad);
-  
-  // Arrow base left
-  float rad2 = (angle - 90 - 140) * PI / 180.0;
-  int x2 = centerX + (radius * 0.5) * cos(rad2);
-  int y2 = centerY + (radius * 0.5) * sin(rad2);
-  
-  // Arrow base right
-  float rad3 = (angle - 90 + 140) * PI / 180.0;
-  int x3 = centerX + (radius * 0.5) * cos(rad3);
-  int y3 = centerY + (radius * 0.5) * sin(rad3);
-  
-  tft.fillTriangle(x1, y1, x2, y2, x3, y3, color);
-  tft.drawCircle(centerX, centerY, radius + 2, ST77XX_WHITE);
-}
-
-void updateDisplay() {
-  unsigned long currentTime = millis();
-  
-  // Handle home saved feedback (non-blocking)
-  if (showHomeSavedFeedback) {
-    if (currentTime - homeSavedFeedbackTime < HOME_SAVED_FEEDBACK_DURATION) {
-      // Show green feedback screen
-      tft.fillScreen(ST77XX_GREEN);
-      tft.setTextColor(ST77XX_BLACK);
-      tft.setCursor(40, SCREEN_HEIGHT/2 - 10);
-      tft.setTextSize(2);
-      tft.println("HOME SAVED!");
-      return; // Skip normal display update
-    } else {
-      // Feedback period ended
-      showHomeSavedFeedback = false;
-      tft.fillScreen(ST77XX_BLACK);
-    }
-  }
-  
-  if (currentTime - lastDisplayUpdate < DISPLAY_UPDATE_INTERVAL) {
-    return;
-  }
-  lastDisplayUpdate = currentTime;
-  
-  tft.fillScreen(ST77XX_BLACK);
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_WHITE);
-  
-  // Title
-  tft.setCursor(5, 5);
-  tft.setTextColor(ST77XX_YELLOW);
-  tft.setTextSize(2);
-  tft.println("Bring Em Home");
-  
-  // GPS Status
-  tft.setCursor(5, 30);
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_WHITE);
-  tft.print("GPS: ");
-  if (gpsValid) {
-    tft.setTextColor(ST77XX_GREEN);
-    tft.print("LOCKED");
-    tft.setTextColor(ST77XX_WHITE);
-    tft.print(" Sats: ");
-    tft.print(gps.satellites.value());
-  } else {
-    tft.setTextColor(ST77XX_RED);
-    tft.println("SEARCHING...");
-  }
-  
-  // Current position
-  tft.setCursor(5, 45);
-  tft.setTextColor(ST77XX_CYAN);
-  tft.print("Lat: ");
-  tft.println(currentLat, 6);
-  tft.setCursor(5, 55);
-  tft.print("Lon: ");
-  tft.println(currentLon, 6);
-  
-  // Compass heading
-  tft.setCursor(5, 70);
-  tft.setTextColor(ST77XX_MAGENTA);
-  tft.print("Heading: ");
-  tft.print((int)heading);
-  tft.println("°");
-  
-  // Home position and navigation
-  if (homeSet) {
-    tft.setCursor(5, 90);
-    tft.setTextColor(ST77XX_YELLOW);
-    tft.println("HOME POSITION SET");
+    delay(2000);
+    Serial.println("\n\n=== ESP32-S3 Bring Em Home ===");
     
-    tft.setCursor(5, 105);
-    tft.setTextColor(ST77XX_CYAN);
-    tft.print("Home: ");
-    tft.print(homeLat, 6);
-    tft.setCursor(5, 115);
-    tft.print("      ");
-    tft.print(homeLon, 6);
+    // Backlight Control
+    pinMode(TFT_BL, OUTPUT);
+    digitalWrite(TFT_BL, HIGH); // ON
     
-    if (gpsValid) {
-      // Distance
-      tft.setCursor(5, 130);
-      tft.setTextColor(ST77XX_GREEN);
-      tft.print("Distance: ");
-      if (distanceToHome < 1000) {
-        tft.print((int)distanceToHome);
-        tft.println(" m");
-      } else {
-        tft.print(distanceToHome / 1000.0, 2);
-        tft.println(" km");
-      }
-      
-      // Bearing
-      tft.setCursor(5, 145);
-      tft.print("Bearing: ");
-      tft.print((int)bearingToHome);
-      tft.println("°");
-      
-      // Compass arrow showing direction to home
-      float relativeAngle = bearingToHome - heading;
-      // Normalize angle to -180 to +180 range
-      while (relativeAngle > 180.0) relativeAngle -= 360.0;
-      while (relativeAngle < -180.0) relativeAngle += 360.0;
-      drawCompassArrow(COMPASS_CENTER_X, COMPASS_CENTER_Y, COMPASS_RADIUS, relativeAngle, ST77XX_GREEN);
-      
-      tft.setCursor(240, 140);
-      tft.setTextSize(1);
-      tft.println("Home");
+    // Button Setup
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    lastInteractionTime = millis();
+
+    // Vibration Setup
+    pinMode(VIB_PIN, OUTPUT);
+    digitalWrite(VIB_PIN, LOW);
+
+    // Initialize Sensors
+    Wire.begin(I2C_SDA, I2C_SCL);
+    qmc.init();
+    Serial1.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+    setGPSPower(true); // Ensure GPS is awake
+    
+    // Initialize Preferences
+    preferences.begin("bringemhome", false);
+    homeLat = preferences.getDouble("lat", 0.0);
+    homeLon = preferences.getDouble("lon", 0.0);
+    hasHome = (homeLat != 0.0 && homeLon != 0.0);
+    Serial.printf("Home: %f, %f\n", homeLat, homeLon);
+    
+    startTime = millis(); // Start timer for auto-home
+
+    // Initialize display
+    if (!gfx->begin()) {
+        Serial.println("ERROR: gfx->begin() failed!");
+        while(1) { delay(1000); }
     }
-  } else {
-    tft.setCursor(5, 90);
-    tft.setTextColor(ST77XX_ORANGE);
-    tft.println("NO HOME SET");
-    tft.setCursor(5, 105);
-    tft.setTextSize(1);
-    tft.println("Press BOOT button");
-    tft.setCursor(5, 115);
-    tft.println("to save home pos");
-  }
-  
-  // Instructions at bottom
-  tft.setCursor(5, 160);
-  tft.setTextColor(ST77XX_WHITE);
-  tft.setTextSize(1);
-  tft.println("BOOT: Save home position");
+    
+    // Memory Debugging
+    Serial.printf("Total Heap: %d, Free Heap: %d\n", ESP.getHeapSize(), ESP.getFreeHeap());
+    Serial.printf("Total PSRAM: %d, Free PSRAM: %d\n", ESP.getPsramSize(), ESP.getFreePsram());
+
+    // Canvas removed for stability (caused crash due to low RAM)
+    // We will draw directly to gfx
+    drawTarget = gfx;
+
+    gfx->fillScreen(BLACK);
+    
+    // Elegant Splash Screen
+    gfx->drawFastHLine(20, 80, 200, C_SILVER);
+    
+    gfx->setCursor(10, 100); // Adjusted X for larger text
+    gfx->setTextColor(C_EMERALD);
+    gfx->setTextSize(3); // Larger Title
+    gfx->println("Bring Em Home");
+    
+    gfx->drawFastHLine(20, 140, 200, C_SILVER);
+    
+    gfx->setCursor(25, 180); // Adjusted X
+    gfx->setTextColor(C_GOLD);
+    gfx->setTextSize(2); // Larger Subtitle
+    gfx->println("Waiting for GPS...");
 }
 
 void loop() {
-  // Read GPS data
-  readGPS();
-  
-  // Read compass
-  readCompass();
-  
-  // Calculate navigation
-  calculateNavigation();
-  
-  // Handle button press for saving home position
-  bool btnSaveReading = digitalRead(BTN_SAVE);
-  
-  if (btnSaveReading != lastBtnSaveState) {
-    lastDebounceTime = millis();
-  }
-  
-  if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
-    if (btnSaveReading == LOW && lastBtnSaveState == HIGH) {
-      saveHomePosition();
+    // 1. Process GPS
+    while (Serial1.available()) {
+        gps.encode(Serial1.read());
     }
-  }
-  
-  lastBtnSaveState = btnSaveReading;
-  
-  // Update display
-  updateDisplay();
-  
-  // Debug output
-  if (gpsValid) {
-    Serial.printf("GPS: %.6f, %.6f | Heading: %.1f° | ", 
-                  currentLat, currentLon, heading);
-    if (homeSet) {
-      Serial.printf("Distance: %.1fm | Bearing: %.1f°\n", 
-                    distanceToHome, bearingToHome);
-    } else {
-      Serial.println("No home set");
+
+    // 2. Process Compass
+    uint16_t x, y, z;
+    float heading;
+    qmc.read(&x, &y, &z, &heading);
+    currentHeading = (int)heading;
+
+    // 3. Button Logic
+    bool currentButtonState = digitalRead(BUTTON_PIN);
+    
+    // Button Pressed
+    if (currentButtonState == LOW && lastButtonState == HIGH) {
+        buttonPressStartTime = millis();
+        isLongPressHandled = false;
     }
-  }
-  
-  delay(100);
+    
+    // Button Held (Long Press)
+    if (currentButtonState == LOW) {
+        unsigned long pressDuration = millis() - buttonPressStartTime;
+        
+        // 2s: Save Home (Only in Recording Mode, One shot)
+        if (!isLongPressHandled && pressDuration > 2000 && pressDuration < 5000) {
+            if (currentMode == MODE_RECORDING) {
+                Serial.println("Long Press: Saving Home");
+                if (gps.location.isValid()) {
+                    homeLat = gps.location.lat();
+                    homeLon = gps.location.lng();
+                    hasHome = true;
+                    preferences.putDouble("lat", homeLat);
+                    preferences.putDouble("lon", homeLon);
+                    
+                    // Visual Feedback
+                    if (!isDisplayOn) { 
+                        digitalWrite(TFT_BL, HIGH); 
+                        isDisplayOn = true; 
+                        setCpuFrequencyMhz(240);
+                    }
+                    gfx->fillScreen(C_EMERALD);
+                    gfx->setCursor(40, 110);
+                    gfx->setTextColor(BLACK);
+                    gfx->setTextSize(2);
+                    gfx->println("HOME SAVED!");
+                    delay(1000);
+                    gfx->fillScreen(BLACK);
+                } else {
+                    // Error Feedback
+                    if (!isDisplayOn) { 
+                        digitalWrite(TFT_BL, HIGH); 
+                        isDisplayOn = true; 
+                        setCpuFrequencyMhz(240);
+                    }
+                    gfx->fillScreen(C_RUBY);
+                    gfx->setCursor(40, 110);
+                    gfx->setTextColor(WHITE);
+                    gfx->setTextSize(2);
+                    gfx->println("NO GPS FIX!");
+                    delay(1000);
+                    gfx->fillScreen(BLACK);
+                }
+            }
+            isLongPressHandled = true; // Prevent repeat
+            lastInteractionTime = millis();
+        }
+        
+        // 5s: Power Off (Deep Sleep)
+        if (pressDuration > 5000) {
+            // Feedback
+            if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); }
+            setCpuFrequencyMhz(240);
+            gfx->fillScreen(BLACK);
+            gfx->setCursor(40, 100);
+            gfx->setTextColor(C_SILVER);
+            gfx->setTextSize(2);
+            gfx->println("GOODBYE");
+            delay(1000);
+            digitalWrite(TFT_BL, LOW);
+            
+            // Turn off GPS
+            setGPSPower(false);
+            
+            // Configure Wakeup
+            esp_sleep_enable_ext0_wakeup((gpio_num_t)BUTTON_PIN, 0); // Wake on LOW
+            
+            // Go to Sleep
+            Serial.println("Entering Deep Sleep...");
+            esp_deep_sleep_start();
+        }
+    }
+    
+    // Button Released
+    if (currentButtonState == HIGH && lastButtonState == LOW) {
+        if (!isLongPressHandled && (millis() - buttonPressStartTime < 2000)) {
+            // Register Click (only if not a long press)
+            clickCount++;
+            lastClickTime = millis();
+        }
+    }
+    lastButtonState = currentButtonState;
+
+    // Process Clicks (Delayed to detect double click)
+    if (clickCount > 0 && (millis() - lastClickTime > CLICK_DELAY)) {
+        if (clickCount == 1) {
+            // Single Click: Toggle Display
+            if (isDisplayOn) {
+                digitalWrite(TFT_BL, LOW);
+                isDisplayOn = false;
+                setCpuFrequencyMhz(80); // Low power mode
+            } else {
+                digitalWrite(TFT_BL, HIGH);
+                isDisplayOn = true;
+                setCpuFrequencyMhz(240); // High performance mode
+                lastInteractionTime = millis();
+            }
+        } else if (clickCount >= 2) {
+            // Double Click: Toggle Mode
+            if (currentMode == MODE_RECORDING) {
+                currentMode = MODE_BACKTRACKING;
+                // Find closest breadcrumb to start with
+                if (!breadcrumbs.empty() && gps.location.isValid()) {
+                    double minDst = 99999999;
+                    int minIdx = -1;
+                    for(int i=0; i<breadcrumbs.size(); i++) {
+                        double d = gps.distanceBetween(gps.location.lat(), gps.location.lng(), breadcrumbs[i].lat, breadcrumbs[i].lon);
+                        if (d < minDst) {
+                            minDst = d;
+                            minIdx = i;
+                        }
+                    }
+                    targetBreadcrumbIndex = minIdx;
+                } else {
+                    targetBreadcrumbIndex = -1;
+                }
+                
+                // Feedback
+                if (!isDisplayOn) { 
+                    digitalWrite(TFT_BL, HIGH); 
+                    isDisplayOn = true; 
+                    setCpuFrequencyMhz(240);
+                }
+                gfx->fillScreen(C_RUBY);
+                gfx->setCursor(40, 110);
+                gfx->setTextColor(WHITE);
+                gfx->setTextSize(2);
+                gfx->println("RETURN MODE");
+                delay(1000);
+                gfx->fillScreen(BLACK);
+            } else {
+                currentMode = MODE_RECORDING;
+                // Feedback
+                if (!isDisplayOn) { 
+                    digitalWrite(TFT_BL, HIGH); 
+                    isDisplayOn = true; 
+                    setCpuFrequencyMhz(240);
+                }
+                gfx->fillScreen(C_EMERALD);
+                gfx->setCursor(40, 110);
+                gfx->setTextColor(BLACK);
+                gfx->setTextSize(2);
+                gfx->println("EXPLORE MODE");
+                delay(1000);
+                gfx->fillScreen(BLACK);
+            }
+            lastInteractionTime = millis();
+        }
+        clickCount = 0;
+    }
+
+    // 4. Auto-Home Logic (5 minutes)
+    if (!hasHome && gps.location.isValid()) {
+        if (millis() - startTime > 300000) { // 5 mins
+            homeLat = gps.location.lat();
+            homeLon = gps.location.lng();
+            hasHome = true;
+            preferences.putDouble("lat", homeLat);
+            preferences.putDouble("lon", homeLon);
+            Serial.println("Auto-Home Set!");
+        }
+    }
+
+    // 5. Breadcrumb Logic (Recording)
+    if (currentMode == MODE_RECORDING && gps.location.isValid()) {
+        bool shouldSave = false;
+        if (breadcrumbs.empty()) {
+            shouldSave = true;
+        } else {
+            Breadcrumb last = breadcrumbs.back();
+            double dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), last.lat, last.lon);
+            if (dist > BREADCRUMB_DISTANCE) {
+                shouldSave = true;
+            }
+        }
+        
+        if (shouldSave) {
+            Breadcrumb b;
+            b.lat = gps.location.lat();
+            b.lon = gps.location.lng();
+            breadcrumbs.push_back(b);
+            Serial.printf("Breadcrumb saved: %f, %f\n", b.lat, b.lon);
+        }
+    }
+
+    // 6. Backtrack Logic (Target Update)
+    if (currentMode == MODE_BACKTRACKING && gps.location.isValid() && !breadcrumbs.empty()) {
+        if (targetBreadcrumbIndex >= 0) {
+            double distToTarget = gps.distanceBetween(gps.location.lat(), gps.location.lng(), 
+                                                    breadcrumbs[targetBreadcrumbIndex].lat, 
+                                                    breadcrumbs[targetBreadcrumbIndex].lon);
+            // If we reached the target (within 20m), move to previous
+            if (distToTarget < 20.0) {
+                targetBreadcrumbIndex--;
+                triggerVibration();
+                // If index < 0, we are past the last breadcrumb, target becomes Home
+            }
+        }
+    }
+
+    // 7. Vibration Logic
+    if (isVibrating && (millis() - vibrationStartTime > 500)) {
+        digitalWrite(VIB_PIN, LOW);
+        isVibrating = false;
+    }
+
+    // 8. Display Timeout
+    if (isDisplayOn && (millis() - lastInteractionTime > DISPLAY_TIMEOUT)) {
+        digitalWrite(TFT_BL, LOW);
+        isDisplayOn = false;
+        setCpuFrequencyMhz(80); // Low power mode
+    }
+
+    // 9. Update Display
+    if (isDisplayOn) {
+        static unsigned long lastUpdate = 0;
+        if (millis() - lastUpdate > 100) { // 10Hz update for smooth compass
+            lastUpdate = millis();
+            
+            // Use drawTarget (either canvas or gfx)
+            drawTarget->fillScreen(BLACK);
+            
+            // --- Header ---
+            // Top Line
+            drawTarget->drawFastHLine(20, 40, 200, C_SILVER); // Moved down slightly
+            
+            // Mode Title (Centered)
+            drawTarget->setTextSize(3); // Larger Title
+            String title = (currentMode == MODE_RECORDING) ? "EXPLORE" : "RETURN";
+            uint16_t titleColor = (currentMode == MODE_RECORDING) ? C_EMERALD : C_RUBY;
+            
+            int16_t x1, y1;
+            uint16_t w, h;
+            drawTarget->getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
+            drawTarget->setCursor((SCREEN_WIDTH - w) / 2, 10);
+            drawTarget->setTextColor(titleColor);
+            drawTarget->print(title);
+
+            // Satellites (Small, Top Right)
+            drawTarget->setTextSize(2); // Larger Sat count
+            drawTarget->setTextColor(C_SILVER);
+            drawTarget->setCursor(200, 5);
+            if (gps.location.isValid()) {
+                drawTarget->printf("%d", gps.satellites.value());
+            } else {
+                drawTarget->print("X");
+            }
+
+            // --- Main Content ---
+            
+            // Target Info
+            double targetLat = homeLat;
+            double targetLon = homeLon;
+            bool targetIsHome = true;
+            
+            if (currentMode == MODE_BACKTRACKING && targetBreadcrumbIndex >= 0 && !breadcrumbs.empty()) {
+                targetLat = breadcrumbs[targetBreadcrumbIndex].lat;
+                targetLon = breadcrumbs[targetBreadcrumbIndex].lon;
+                targetIsHome = false;
+            }
+
+            // Distance & Arrow Logic
+            double dist = 0;
+            double bearing = 0;
+            bool showArrow = false;
+            uint16_t arrowColor = C_SILVER;
+
+            if (currentMode == MODE_RECORDING) {
+                 // Compass Mode - Always Active
+                 if (gps.location.isValid() && hasHome) {
+                    dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
+                 }
+                 bearing = 0; // North
+                 showArrow = true;
+                 arrowColor = C_EMERALD;
+            } else {
+                // Backtrack Mode - Needs GPS
+                if (gps.location.isValid()) {
+                    dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
+                    bearing = gps.courseTo(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
+                    showArrow = true;
+                    arrowColor = C_RUBY;
+                }
+            }
+
+            // Draw Arrow (Center)
+            if (showArrow) {
+                int relBearing = (int)bearing - currentHeading;
+                if (relBearing < 0) relBearing += 360;
+                
+                // Draw fancy needle
+                int arrowCy = 115; // Centered vertically in upper section
+                drawArrow(drawTarget, SCREEN_WIDTH/2, arrowCy, 60, relBearing, arrowColor);
+                
+                // N indicator for Recording mode
+                if (currentMode == MODE_RECORDING) {
+                    float angleRad = (relBearing - 90) * PI / 180.0;
+                    int nx = (SCREEN_WIDTH/2) + 75 * cos(angleRad);
+                    int ny = arrowCy + 75 * sin(angleRad);
+                    drawTarget->setCursor(nx-9, ny-9); // Adjusted for larger font
+                    drawTarget->setTextColor(C_EMERALD);
+                    drawTarget->setTextSize(3); // Larger N
+                    drawTarget->print("N");
+                }
+            } else {
+                // No GPS (Backtracking) or No Home (Recording - but arrow is always shown now)
+                if (currentMode == MODE_BACKTRACKING && !gps.location.isValid()) {
+                    drawTarget->setCursor(50, 140); // Adjusted X
+                    drawTarget->setTextColor(C_RUBY);
+                    drawTarget->setTextSize(3); // Larger Warning
+                    drawTarget->print("NO GPS");
+                }
+            }
+
+            // Distance Text (Below Arrow)
+            if (gps.location.isValid() && (hasHome || currentMode == MODE_BACKTRACKING)) {
+                String distStr;
+                if (dist < 1000) distStr = String(dist, 0) + " m";
+                else distStr = String(dist / 1000.0, 2) + " km";
+                
+                drawTarget->setTextSize(4); // Huge Distance
+                drawTarget->getTextBounds(distStr, 0, 0, &x1, &y1, &w, &h);
+                drawTarget->setCursor((SCREEN_WIDTH - w) / 2, 185); // Moved up slightly
+                drawTarget->setTextColor(WHITE);
+                drawTarget->print(distStr);
+                
+                // Label
+                String label = targetIsHome ? "HOME" : "WAYPOINT";
+                drawTarget->setTextSize(2); // Larger Label
+                drawTarget->getTextBounds(label, 0, 0, &x1, &y1, &w, &h);
+                drawTarget->setCursor((SCREEN_WIDTH - w) / 2, 220);
+                drawTarget->setTextColor(C_GOLD);
+                drawTarget->print(label);
+            } else if (currentMode == MODE_RECORDING && !hasHome) {
+                 // Show "SET HOME" if we have GPS but no home, or just hint
+                 if (gps.location.isValid()) {
+                    drawTarget->setCursor(40, 190);
+                    drawTarget->setTextColor(C_GOLD);
+                    drawTarget->setTextSize(3); // Larger
+                    drawTarget->print("SET HOME");
+                 } else {
+                    drawTarget->setCursor(40, 190);
+                    drawTarget->setTextColor(C_SILVER);
+                    drawTarget->setTextSize(2); // Larger
+                    drawTarget->print("WAITING GPS");
+                 }
+            }
+
+            // Flush Canvas to Display (only if using canvas)
+            if (canvas != nullptr) {
+                canvas->flush();
+            }
+        }
+    }
+    
+    delay(10);
 }

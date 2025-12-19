@@ -2,7 +2,7 @@
 
 ## 📋 Overview
 
-**Bring Em Home** is a GPS navigation device designed to help Emelie (and other hikers) find their way back to their starting point when lost on hikes. The device uses GPS positioning and compass heading to calculate and display the direction and distance back to a saved "home" location.
+**Bring Em Home** is a GPS navigation device designed to help Emilie (and other hikers) find their way back to their starting point when lost on hikes. The device uses GPS positioning and compass heading to calculate and display the direction and distance back to a saved "home" location.
 
 ## 🎯 Project Goals
 
@@ -19,7 +19,7 @@ Create a portable, easy-to-use device that:
 
 | Component | Model | Purpose |
 |-----------|-------|---------|
-| Microcontroller | ESP32-S3 | Processing, WiFi/BLE capable |
+| Microcontroller | ESP32-S3R8 | Processing, WiFi/BLE capable, 16MB Flash/8MB PSRAM |
 | Display | Waveshare 1.47" Touch LCD | 172x320 color display |
 | GPS Module | HGLRC M100-5883 M10 | u-blox M10 GPS receiver |
 | Compass | HMC5883L | Integrated in GPS module |
@@ -200,7 +200,9 @@ Create a portable, easy-to-use device that:
 - **Resolution**: 172x320 pixels
 - **Size**: 1.47 inches diagonal
 - **Type**: IPS LCD
-- **Driver**: ST7789V
+- **Driver**: JD9853
+- **Touch Driver**: AXS5106L
+- **Power Management**: ETA6098 (Battery Charger)
 - **Interface**: SPI
 
 ## 🔒 Safety Features
@@ -375,7 +377,7 @@ A **complete, production-ready GPS navigation device** with:
 
 ## 🌟 Impact
 
-### For Emelie
+### For Emilie
 A reliable device to ensure she can always find her way back home on hikes, providing peace of mind for both her and those who care about her.
 
 ### For Other Hikers
@@ -417,7 +419,7 @@ The Bring Em Home GPS navigation device is fully implemented, documented, and re
 
 ## 🙏 Acknowledgments
 
-Created to help Emelie (and all hikers) find their way home safely.
+Created to help Emilie (and all hikers) find their way home safely.
 
 Special thanks to:
 - u-blox for GPS technology

@@ -1,6 +1,6 @@
 # Bring Em Home 🧭
 
-A GPS navigation device to guide Emelie back to her starting location when lost on hikes.
+A GPS navigation device to guide Emilie back to her starting location when lost on hikes.
 
 ## Overview
 
@@ -8,7 +8,7 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
 
 ## Hardware Requirements
 
-- **ESP32-S3 Development Board** with [Waveshare ESP32-S3 1.47" Touch LCD Display](https://www.waveshare.com/esp32-s3-touch-lcd-1.47.htm)
+- **ESP32-S3 Development Board** with [Waveshare ESP32-S3-LCD-1.3 (240x240)](https://www.waveshare.com/esp32-s3-lcd-1.28.htm) (Note: Link is for similar family, specific 1.3" square model used)
 - **HGLRC M100-5883 M10 GPS Module** with integrated HMC5883L compass
 - Connecting wires
 - USB cable for programming and power
@@ -29,18 +29,22 @@ The HMC5883L compass is integrated in the GPS module:
 - GND → GND
 
 ### Display
-The Waveshare ESP32-S3 Touch LCD display is built into the board:
+The Waveshare ESP32-S3-LCD-1.3 display is built into the board:
+- Display Driver: ST7789
+- Resolution: 240x240
 - Pre-wired to the following pins:
-  - CS: GPIO 10
-  - DC: GPIO 13
-  - RST: GPIO 14
-  - MOSI: GPIO 11
-  - SCLK: GPIO 12
-  - Backlight: GPIO 38
+  - CS: GPIO 39
+  - DC: GPIO 38
+  - RST: GPIO 42
+  - MOSI: GPIO 41
+  - SCLK: GPIO 40
+  - Backlight: GPIO 45
 
 ### Buttons
-- **BOOT Button (GPIO 0)**: Save current position as home
-- Built-in on ESP32-S3 board
+- **External Waterproof Button (GPIO 14)**:
+  - **Short Press**: Toggle Display ON / OFF (Timer resets to 5 min when turned ON)
+  - **Long Press (> 2s)**: Save current position as home
+- **BOOT Button (GPIO 0)**: Not used in housing
 
 ## Software Setup
 
@@ -75,11 +79,8 @@ The Waveshare ESP32-S3 Touch LCD display is built into the board:
 
 1. Install the following libraries via Library Manager:
    - TinyGPSPlus
-   - Adafruit GFX Library
-   - Adafruit ST7735 and ST7789 Library
-   - Adafruit BusIO
-   - Adafruit Unified Sensor
-   - Adafruit HMC5883 Unified
+   - GFX Library for Arduino (MoonOnOurNation)
+   - MechaQMC5883 (Mechasolution)
 
 2. Select Board: "ESP32S3 Dev Module"
 3. Set partition scheme to default
@@ -91,40 +92,67 @@ The Waveshare ESP32-S3 Touch LCD display is built into the board:
 
 1. Power on the device
 2. Wait for GPS to acquire satellite lock (may take 1-5 minutes outdoors with clear sky view)
-3. Once GPS shows "LOCKED" on screen, press the **BOOT button** to save your current position as "home"
+3. Once GPS shows valid coordinates, **press and hold the external button for 2 seconds** to save your current position as "home"
 4. The screen will flash green and show "HOME SAVED!"
 
 ### Navigation
 
+- The screen displays:
+  - **Distance** to home (in meters or km)
+  - **Direction Arrow** pointing towards home relative to your current heading
+  - **Breadcrumb Count**: Number of auto-saved waypoints (saved every 2.5 minutes)
+- Follow the arrow to return to your starting point.
+
+### Navigation Modes
+
+The device has two modes, toggled by a **Double Click** on the button:
+
+1.  **Recording Mode (Default)**
+    *   **Green Arrow**: Points to **North** (Compass).
+    *   **Display**: Shows distance to Home.
+    *   **Action**: Automatically saves breadcrumbs every 250m.
+
+2.  **Backtracking Mode (Return)**
+    *   **Red Arrow**: Points to the **Next Waypoint** or **Home**.
+    *   **Display**: Shows distance to the target.
+    *   **Action**: Guides you back along your path.
+
+### Power Saving
+
+- The display automatically turns off after **5 minutes** of inactivity.
+- **Single Click** the button to toggle the display ON or OFF.
+- Turning the display ON resets the 5-minute timer.
+
+### Navigation Indicators
+
 The display shows:
-- **GPS Status**: LOCKED or SEARCHING
-- **Current Coordinates**: Your current latitude/longitude
-- **Compass Heading**: Current direction you're facing (0-360°)
-- **Home Position**: Saved home coordinates
-- **Distance to Home**: How far you are from home (meters/kilometers)
-- **Bearing to Home**: Direction to travel to reach home (0-360°)
-- **Visual Arrow**: Points towards home position (relative to your current heading)
+- **GPS Status**: Satellite count
+- **Coordinates**: Real-time Lat/Lon at the bottom
+- **Compass Heading**: Current direction (0-360°)
+- **Distance**: To Home or Next Waypoint
+- **Visual Arrow**: 
+    - **Green (Recording)**: North Indicator
+    - **Red (Backtracking)**: Direction to Target
 
 ### Finding Your Way Home
 
-1. Look at the green arrow on the right side of the display
-2. Turn your body until the arrow points straight up (north on compass)
-3. Walk in that direction
-4. The distance and arrow will update as you move
-5. When distance reaches 0, you're home!
+1. **Double Click** the button to enter **Backtracking Mode** (Screen turns Blue briefly).
+2. Follow the **Red Arrow**.
+3. The device will guide you from waypoint to waypoint until you reach Home.
 
 ## Features
 
 - ✅ Real-time GPS coordinate display
-- ✅ Save home position with button press
-- ✅ Calculate distance to home (Haversine formula)
-- ✅ Calculate bearing to home
-- ✅ Digital compass with heading display
-- ✅ Visual arrow pointing towards home
-- ✅ Persistent storage of home position (survives power cycles)
+- ✅ Save home position with button press (Long Press)
+- ✅ Auto-save Home position after 5 minutes if not set
+- ✅ Breadcrumb trail (auto-save every 250m)
+- ✅ Backtracking mode to retrace steps
+- ✅ Calculate distance to home/waypoint
+- ✅ Digital compass (Green North Arrow)
+- ✅ Visual navigation arrow (Red Target Arrow)
+- ✅ Persistent storage of home position
 - ✅ Satellite count display
-- ✅ Color-coded display for easy reading
-- ✅ Low power consumption
+- ✅ Low power consumption (Auto-off)
 
 ## Display Color Coding
 
@@ -197,4 +225,4 @@ This project is open source. Feel free to use and modify as needed.
 
 ## Credits
 
-Created to help Emelie find her way home on hikes! 🏔️➡️🏠
+Created to help Emilie find her way home on hikes! 🏔️➡️🏠

@@ -4,11 +4,15 @@
 
 ### Main Components
 1. **Waveshare ESP32-S3 Touch LCD 1.47"**
-   - ESP32-S3 dual-core processor
-   - 172x320 pixel ST7789V LCD display
-   - Built-in touchscreen
-   - USB-C connector
-   - [Product Link](https://www.waveshare.com/esp32-s3-touch-lcd-1.47.htm)
+   - **Core**: ESP32-S3R8 (Xtensa 32-bit LX7 dual-core, up to 240MHz)
+   - **Memory**: 16MB Flash, 8MB PSRAM
+   - **Display**: 1.47" IPS LCD, 172x320 pixels, JD9853 driver
+   - **Touch**: Capacitive touchscreen, AXS5106L driver
+   - **Wireless**: 2.4GHz Wi-Fi & Bluetooth 5 (LE)
+   - **Power**: ETA6098 Battery Charger, ME6217C33M5G LDO (800mA)
+   - **Storage**: Onboard TF card slot
+   - **Interface**: USB-C, Onboard Antenna
+   - [Product Link](https://www.waveshare.com/esp32-s3-touch-lcd-1.47.htm) | [Wiki](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.47) | [Schematic](https://files.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.47/ESP32-S3-Touch-LCD-1.47-Schematic.pdf)
 
 2. **HGLRC M100-5883 M10 GPS Module**
    - u-blox M10 GPS receiver
