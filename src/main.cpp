@@ -54,11 +54,19 @@ TinyGPSPlus gps;
 MechaQMC5883 qmc;
 Preferences preferences;
 
+// App Modes
+enum AppMode {
+    MODE_RECORDING,
+    MODE_BACKTRACKING
+};
+AppMode currentMode = MODE_RECORDING;
+
 // Navigation Data
 double homeLat = 0.0;
 double homeLon = 0.0;
 bool hasHome = false;
 int currentHeading = 0;
+unsigned long startTime = 0;
 
 // Breadcrumbs
 struct Breadcrumb {
@@ -66,8 +74,13 @@ struct Breadcrumb {
     double lon;
 };
 std::vector<Breadcrumb> breadcrumbs;
-unsigned long lastBreadcrumbTime = 0;
-const unsigned long BREADCRUMB_INTERVAL = 150000; // 2.5 minutes
+const double BREADCRUMB_DISTANCE = 250.0; // Meters
+int targetBreadcrumbIndex = -1; // For backtracking
+
+// Button Logic (Multi-click)
+int clickCount = 0;
+unsigned long lastClickTime = 0;
+const int CLICK_DELAY = 400; // ms to wait for double click
 
 // Create display bus and display object
 Arduino_DataBus *bus = new Arduino_ESP32SPI(
@@ -91,6 +104,26 @@ Arduino_GFX *gfx = new Arduino_ST7789(
     0,            // col_offset2
     0             // row_offset2
 );
+
+// Helper: Draw Rotated Arrow
+void drawArrow(int cx, int cy, int r, float angleDeg, uint16_t color) {
+    float angleRad = (angleDeg - 90) * PI / 180.0; // -90 to point up at 0 deg
+    
+    // Points for a triangle
+    // Tip
+    int x1 = cx + r * cos(angleRad);
+    int y1 = cy + r * sin(angleRad);
+    
+    // Back Left
+    int x2 = cx + (r * 0.6) * cos(angleRad + 2.5); // ~143 deg offset
+    int y2 = cy + (r * 0.6) * sin(angleRad + 2.5);
+    
+    // Back Right
+    int x3 = cx + (r * 0.6) * cos(angleRad - 2.5);
+    int y3 = cy + (r * 0.6) * sin(angleRad - 2.5);
+    
+    gfx->fillTriangle(x1, y1, x2, y2, x3, y3, color);
+}
 
 // Initialization sequence from Waveshare Demo
 void lcd_reg_init(void) {
@@ -213,6 +246,8 @@ void setup() {
     homeLon = preferences.getDouble("lon", 0.0);
     hasHome = (homeLat != 0.0 && homeLon != 0.0);
     Serial.printf("Home: %f, %f\n", homeLat, homeLon);
+    
+    startTime = millis(); // Start timer for auto-home
 
     // Initialize display
     if (!gfx->begin()) {
@@ -253,37 +288,42 @@ void loop() {
         isLongPressHandled = false;
     }
     
-    // Button Held
+    // Button Held (Long Press)
     if (currentButtonState == LOW) {
         if (!isLongPressHandled && (millis() - buttonPressStartTime > 2000)) {
-            // Long Press: Save Home
-            Serial.println("Long Press: Saving Home");
-            if (gps.location.isValid()) {
-                homeLat = gps.location.lat();
-                homeLon = gps.location.lng();
-                hasHome = true;
-                preferences.putDouble("lat", homeLat);
-                preferences.putDouble("lon", homeLon);
-                
-                // Visual Feedback
-                if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
-                gfx->fillScreen(GREEN);
-                gfx->setCursor(20, 100);
-                gfx->setTextColor(BLACK);
-                gfx->setTextSize(2);
-                gfx->println("HOME SAVED!");
-                delay(1000);
-                gfx->fillScreen(BLACK);
+            // Long Press Action: Save Home (Only in Recording Mode)
+            if (currentMode == MODE_RECORDING) {
+                Serial.println("Long Press: Saving Home");
+                if (gps.location.isValid()) {
+                    homeLat = gps.location.lat();
+                    homeLon = gps.location.lng();
+                    hasHome = true;
+                    preferences.putDouble("lat", homeLat);
+                    preferences.putDouble("lon", homeLon);
+                    
+                    // Visual Feedback
+                    if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
+                    gfx->fillScreen(GREEN);
+                    gfx->setCursor(20, 100);
+                    gfx->setTextColor(BLACK);
+                    gfx->setTextSize(2);
+                    gfx->println("HOME SAVED!");
+                    delay(1000);
+                    gfx->fillScreen(BLACK);
+                } else {
+                    // Error Feedback
+                    if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
+                    gfx->fillScreen(RED);
+                    gfx->setCursor(20, 100);
+                    gfx->setTextColor(WHITE);
+                    gfx->setTextSize(2);
+                    gfx->println("NO GPS FIX!");
+                    delay(1000);
+                    gfx->fillScreen(BLACK);
+                }
             } else {
-                // Error Feedback
-                if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
-                gfx->fillScreen(RED);
-                gfx->setCursor(20, 100);
-                gfx->setTextColor(WHITE);
-                gfx->setTextSize(2);
-                gfx->println("NO GPS FIX!");
-                delay(1000);
-                gfx->fillScreen(BLACK);
+                // In Backtrack Mode: Long Press could exit? 
+                // For now, let's keep mode switching to Double Click
             }
             isLongPressHandled = true;
             lastInteractionTime = millis();
@@ -293,7 +333,17 @@ void loop() {
     // Button Released
     if (currentButtonState == HIGH && lastButtonState == LOW) {
         if (!isLongPressHandled) {
-            // Short Press: Toggle Display
+            // Register Click
+            clickCount++;
+            lastClickTime = millis();
+        }
+    }
+    lastButtonState = currentButtonState;
+
+    // Process Clicks (Delayed to detect double click)
+    if (clickCount > 0 && (millis() - lastClickTime > CLICK_DELAY)) {
+        if (clickCount == 1) {
+            // Single Click: Toggle Display
             if (isDisplayOn) {
                 digitalWrite(TFT_BL, LOW);
                 isDisplayOn = false;
@@ -302,59 +352,149 @@ void loop() {
                 isDisplayOn = true;
                 lastInteractionTime = millis();
             }
+        } else if (clickCount >= 2) {
+            // Double Click: Toggle Mode
+            if (currentMode == MODE_RECORDING) {
+                currentMode = MODE_BACKTRACKING;
+                // Find closest breadcrumb to start with
+                if (!breadcrumbs.empty() && gps.location.isValid()) {
+                    double minDst = 99999999;
+                    int minIdx = -1;
+                    for(int i=0; i<breadcrumbs.size(); i++) {
+                        double d = gps.distanceBetween(gps.location.lat(), gps.location.lng(), breadcrumbs[i].lat, breadcrumbs[i].lon);
+                        if (d < minDst) {
+                            minDst = d;
+                            minIdx = i;
+                        }
+                    }
+                    targetBreadcrumbIndex = minIdx;
+                } else {
+                    targetBreadcrumbIndex = -1;
+                }
+                
+                // Feedback
+                if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
+                gfx->fillScreen(BLUE);
+                gfx->setCursor(20, 100);
+                gfx->setTextColor(WHITE);
+                gfx->setTextSize(2);
+                gfx->println("RETURN MODE");
+                delay(1000);
+                gfx->fillScreen(BLACK);
+            } else {
+                currentMode = MODE_RECORDING;
+                // Feedback
+                if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
+                gfx->fillScreen(BLACK);
+                gfx->setCursor(20, 100);
+                gfx->setTextColor(WHITE);
+                gfx->setTextSize(2);
+                gfx->println("RECORDING");
+                delay(1000);
+                gfx->fillScreen(BLACK);
+            }
+            lastInteractionTime = millis();
+        }
+        clickCount = 0;
+    }
+
+    // 4. Auto-Home Logic (5 minutes)
+    if (!hasHome && gps.location.isValid()) {
+        if (millis() - startTime > 300000) { // 5 mins
+            homeLat = gps.location.lat();
+            homeLon = gps.location.lng();
+            hasHome = true;
+            preferences.putDouble("lat", homeLat);
+            preferences.putDouble("lon", homeLon);
+            Serial.println("Auto-Home Set!");
         }
     }
-    lastButtonState = currentButtonState;
 
-    // 4. Breadcrumb Logic
-    if (gps.location.isValid()) {
-        if (millis() - lastBreadcrumbTime > BREADCRUMB_INTERVAL) {
+    // 5. Breadcrumb Logic (Recording)
+    if (currentMode == MODE_RECORDING && gps.location.isValid()) {
+        bool shouldSave = false;
+        if (breadcrumbs.empty()) {
+            shouldSave = true;
+        } else {
+            Breadcrumb last = breadcrumbs.back();
+            double dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), last.lat, last.lon);
+            if (dist > BREADCRUMB_DISTANCE) {
+                shouldSave = true;
+            }
+        }
+        
+        if (shouldSave) {
             Breadcrumb b;
             b.lat = gps.location.lat();
             b.lon = gps.location.lng();
             breadcrumbs.push_back(b);
-            lastBreadcrumbTime = millis();
             Serial.printf("Breadcrumb saved: %f, %f\n", b.lat, b.lon);
         }
     }
 
-    // 5. Display Timeout
+    // 6. Backtrack Logic (Target Update)
+    if (currentMode == MODE_BACKTRACKING && gps.location.isValid() && !breadcrumbs.empty()) {
+        if (targetBreadcrumbIndex >= 0) {
+            double distToTarget = gps.distanceBetween(gps.location.lat(), gps.location.lng(), 
+                                                    breadcrumbs[targetBreadcrumbIndex].lat, 
+                                                    breadcrumbs[targetBreadcrumbIndex].lon);
+            // If we reached the target (within 20m), move to previous
+            if (distToTarget < 20.0) {
+                targetBreadcrumbIndex--;
+                // If index < 0, we are past the last breadcrumb, target becomes Home
+            }
+        }
+    }
+
+    // 7. Display Timeout
     if (isDisplayOn && (millis() - lastInteractionTime > DISPLAY_TIMEOUT)) {
         digitalWrite(TFT_BL, LOW);
         isDisplayOn = false;
     }
 
-    // 6. Update Display
+    // 8. Update Display
     if (isDisplayOn) {
         static unsigned long lastUpdate = 0;
-        if (millis() - lastUpdate > 1000) {
+        if (millis() - lastUpdate > 500) { // Faster update for smooth arrow
             lastUpdate = millis();
             
-            // Clear screen (or use partial updates for better performance)
             gfx->fillScreen(BLACK);
             
             // Header
-            gfx->setCursor(0, 20);
+            gfx->setCursor(0, 10);
             gfx->setTextColor(WHITE);
             gfx->setTextSize(2);
-            if (gps.location.isValid()) {
-                gfx->printf("Sats: %d", gps.satellites.value());
+            if (currentMode == MODE_RECORDING) {
+                gfx->print("REC ");
             } else {
-                gfx->print("No GPS Fix");
+                gfx->setTextColor(CYAN);
+                gfx->print("BACK ");
+                gfx->setTextColor(WHITE);
             }
             
-            // Heading
-            gfx->setCursor(140, 20);
-            gfx->setTextColor(CYAN);
-            gfx->printf("%d deg", currentHeading);
+            if (gps.location.isValid()) {
+                gfx->printf("Sats:%d", gps.satellites.value());
+            } else {
+                gfx->print("No Fix");
+            }
+            
+            // Target Info
+            double targetLat = homeLat;
+            double targetLon = homeLon;
+            bool targetIsHome = true;
+            
+            if (currentMode == MODE_BACKTRACKING && targetBreadcrumbIndex >= 0 && !breadcrumbs.empty()) {
+                targetLat = breadcrumbs[targetBreadcrumbIndex].lat;
+                targetLon = breadcrumbs[targetBreadcrumbIndex].lon;
+                targetIsHome = false;
+            }
 
-            // Home Info
-            if (hasHome && gps.location.isValid()) {
-                double dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
-                double bearing = gps.courseTo(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
+            if ((hasHome || !targetIsHome) && gps.location.isValid()) {
+                double dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
+                double bearing = gps.courseTo(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
                 
                 // Distance
-                gfx->setCursor(20, 80);
+                gfx->setCursor(20, 60);
                 gfx->setTextColor(GREEN);
                 gfx->setTextSize(3);
                 if (dist < 1000) {
@@ -363,37 +503,34 @@ void loop() {
                     gfx->printf("%.2f km", dist / 1000.0);
                 }
                 
-                // Direction Arrow (Simplified text for now)
-                gfx->setCursor(20, 140);
+                // Target Label
+                gfx->setCursor(20, 90);
+                gfx->setTextSize(1);
                 gfx->setTextColor(YELLOW);
-                gfx->setTextSize(2);
-                
-                // Relative bearing
+                if (targetIsHome) gfx->print("To: HOME");
+                else gfx->printf("To: WP #%d", targetBreadcrumbIndex + 1);
+
+                // Direction Arrow
+                // Calculate relative bearing
                 int relBearing = (int)bearing - currentHeading;
                 if (relBearing < 0) relBearing += 360;
-                if (relBearing >= 360) relBearing -= 360;
                 
-                if (relBearing > 337 || relBearing <= 22) gfx->print("   ^   "); // Ahead
-                else if (relBearing > 22 && relBearing <= 67) gfx->print("   /   "); // Right-Front
-                else if (relBearing > 67 && relBearing <= 112) gfx->print("   >   "); // Right
-                else if (relBearing > 112 && relBearing <= 157) gfx->print("   \\   "); // Right-Back
-                else if (relBearing > 157 && relBearing <= 202) gfx->print("   v   "); // Back
-                else if (relBearing > 202 && relBearing <= 247) gfx->print("   /   "); // Left-Back
-                else if (relBearing > 247 && relBearing <= 292) gfx->print("   <   "); // Left
-                else if (relBearing > 292 && relBearing <= 337) gfx->print("   \\   "); // Left-Front
+                // Draw Arrow in center
+                uint16_t arrowColor = (currentMode == MODE_RECORDING) ? GREEN : RED;
+                drawArrow(SCREEN_WIDTH/2, 160, 40, relBearing, arrowColor);
                 
-            } else if (!hasHome) {
+            } else if (!hasHome && currentMode == MODE_RECORDING) {
                 gfx->setCursor(20, 100);
                 gfx->setTextColor(RED);
                 gfx->setTextSize(2);
                 gfx->print("Set Home!");
             }
             
-            // Breadcrumbs count
+            // Footer
             gfx->setCursor(10, 220);
             gfx->setTextColor(MAGENTA);
             gfx->setTextSize(1);
-            gfx->printf("Pts: %d", breadcrumbs.size());
+            gfx->printf("WPs: %d  Hdg: %d", breadcrumbs.size(), currentHeading);
         }
     }
     
