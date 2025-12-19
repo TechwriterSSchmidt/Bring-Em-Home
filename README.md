@@ -33,6 +33,7 @@ The Heltec Wireless Tracker integrates most components, simplifying the wiring s
 - **Button**: GPIO 0 (Built-in "PRG" button or external)
 - **Vibration Motor**: GPIO 7
 - **Flashlight LED**: GPIO 5
+- **Status LED (NeoPixel)**: GPIO 18 (Internal WS2812)
 
 ## Features
 - **GPS Navigation**: Breadcrumb tracking and "Return Home" arrow.
@@ -44,6 +45,24 @@ The Heltec Wireless Tracker integrates most components, simplifying the wiring s
 - **SOS Signal**: Automatic SOS Morse code flashing.
 - **Vibration Feedback**: Haptic feedback for interactions.
 - **Fail-Safe**: Auto-restart on hardware failure.
+
+## 🔋 Power & Battery Life
+
+The device is optimized for long hikes. It uses dynamic CPU frequency scaling (240MHz active / 80MHz eco) and auto-display timeout.
+
+**Settings:**
+- **Display Timeout:** 120 seconds (configurable in `src/config.h`)
+- **Status LED:** 40% Brightness
+- **CPU:** Auto-throttling when display is off.
+- **LoRa SOS:** Transmits every 60 seconds (in SOS mode).
+
+| Battery Capacity | Hiking Mode (Avg. Consumption ~90mA) | SOS Mode (Avg. Consumption ~220mA) |
+| :--- | :--- | :--- |
+| **1500 mAh** | **~14 Hours** | **~5.5 Hours** |
+| **2000 mAh** | **~19 Hours** | **~7.5 Hours** |
+| **3000 mAh** | **~28 Hours** | **~11 Hours** |
+
+*> Note: Estimates include a 15% safety margin for converter losses and battery aging.*
 
 ## Getting Started
 
@@ -209,9 +228,23 @@ The display shows:
 - Range: ±8 Gauss
 - Accuracy: 1-2° heading accuracy
 
-### Power Consumption
-- Active (GPS + Display): ~150-200mA @ 5V
-- Sleep mode: Not yet implemented
+### Power Consumption & Battery Life
+
+The device is designed for efficiency, but high-power features like the SOS beacon consume significant energy.
+
+**Component Power Draw:**
+- **Base System** (ESP32 + Sensors + Display + NeoPixel): ~135 mA
+- **SOS Mode** (Base + High Power LED + LoRa Tx): ~230 mA (Average)
+  - *Note: The SOS LED (0.75W) draws ~227mA when on. With the SOS Morse pattern (approx. 40% duty cycle), it adds ~92mA on average.*
+
+**Estimated Battery Life (85% Efficiency):**
+
+| Battery Capacity | Hiking Mode (Tracking) | SOS Mode (Emergency) |
+|------------------|------------------------|----------------------|
+| **1500 mAh**     | ~9.5 Hours             | ~5.5 Hours           |
+| **2000 mAh**     | ~12.5 Hours            | ~7.5 Hours           |
+
+*Estimates assume a typical LiPo battery voltage curve and 85% converter efficiency.*
 
 ## Future Enhancements
 

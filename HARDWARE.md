@@ -251,6 +251,14 @@ For outdoor durability:
 3. Add silica gel desiccant inside
 4. Use waterproof connectors
 
+## Status LED Indicators (Internal WS2812)
+
+The Heltec Wireless Tracker features a built-in WS2812 RGB LED (NeoPixel) on GPIO 18.
+
+- **🔴 Pulsing Red:** Searching for GPS satellites.
+- **🟡 Blinking Yellow (every 10s):** Low Battery warning.
+- **⚫ Off:** Normal operation (GPS fixed, Battery OK) to save power.
+
 ## Bill of Materials (BOM)
 
 | Item | Quantity | Est. Price |

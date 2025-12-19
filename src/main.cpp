@@ -18,37 +18,13 @@
 #include <esp_task_wdt.h>
 #include <RadioLib.h>
 #include <Adafruit_NeoPixel.h>
-
-#define WDT_TIMEOUT 10 // 10 Seconds Watchdog Timeout
-
-// ESP32-S3 Pin Configuration (Heltec Wireless Tracker)
-#define BUTTON_PIN 0  // Built-in Boot Button (PRG) or External on GPIO 0
-#define VIB_PIN 7     // Vibration Motor (Moved from 13)
-#define FLASHLIGHT_PIN 5 // High Power LED (Moved from 21)
-#define VEXT_PIN 3    // Power Control for Sensors
-#define PIN_NEOPIXEL 18 // Internal WS2812 LED
-
-// LoRa Pins (SX1262)
-#define LORA_NSS 8
-#define LORA_DIO1 14
-#define LORA_RST 12
-#define LORA_BUSY 13
-#define LORA_SCK 9
-#define LORA_MISO 11
-#define LORA_MOSI 10
-
-// Sensor Pins
-#define GPS_RX 34     // Internal GPS RX
-#define GPS_TX 33     // Internal GPS TX
-#define I2C_SDA 41    // External I2C SDA
-#define I2C_SCL 42    // External I2C SCL
+#include "config.h"
 
 // Display dimensions
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 128
 
 // Power Management
-#define DISPLAY_TIMEOUT 300000 // 5 minutes in milliseconds
 unsigned long lastInteractionTime = 0;
 bool isDisplayOn = true;
 bool lastButtonState = HIGH;
@@ -65,20 +41,18 @@ bool isFlashlightOn = false;
 bool isSOSActive = false;
 unsigned long lastSOSUpdate = 0;
 int sosStep = 0;
-#define BEACON_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 BLEAdvertising *pAdvertising;
 
 // Objects
 TinyGPSPlus gps;
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 Preferences preferences;
-SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_RST, LORA_BUSY);
+SX1262 radio = new Module(PIN_LORA_NSS, PIN_LORA_DIO1, PIN_LORA_RST, PIN_LORA_BUSY);
 SPIClass loraSPI(HSPI);
 Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 // LoRa State
 unsigned long lastLoRaTx = 0;
-const unsigned long LORA_INTERVAL = 120000; // 2 Minutes
 
 // U8g2 Display Object (SH1107 128x128 I2C)
 // Full framebuffer (F) for smooth animation
@@ -104,16 +78,14 @@ struct Breadcrumb {
     double lon;
 };
 std::vector<Breadcrumb> breadcrumbs;
-const double BREADCRUMB_DISTANCE = 250.0; // Meters
 int targetBreadcrumbIndex = -1; // For backtracking
 
 // Button Logic (Multi-click)
 int clickCount = 0;
 unsigned long lastClickTime = 0;
-const int CLICK_DELAY = 500; // ms to wait for multi-click (Increased for 5-click SOS)
 
 void triggerVibration() {
-    digitalWrite(VIB_PIN, HIGH);
+    digitalWrite(PIN_VIB_MOTOR, HIGH);
     vibrationStartTime = millis();
     isVibrating = true;
 }
@@ -144,14 +116,14 @@ void setBeacon(bool enable) {
 void toggleFlashlight() {
     isFlashlightOn = !isFlashlightOn;
     isSOSActive = false; // Disable SOS if manual light is toggled
-    digitalWrite(FLASHLIGHT_PIN, isFlashlightOn ? HIGH : LOW);
+    digitalWrite(PIN_FLASHLIGHT, isFlashlightOn ? HIGH : LOW);
 }
 
 void toggleSOS() {
     isSOSActive = !isSOSActive;
     isFlashlightOn = false; // Disable manual light
     if (!isSOSActive) {
-        digitalWrite(FLASHLIGHT_PIN, LOW);
+        digitalWrite(PIN_FLASHLIGHT, LOW);
         radio.sleep(); // Put LoRa to sleep
         Serial.println("SOS Deactivated. LoRa Sleeping.");
     } else {
@@ -167,7 +139,7 @@ void updateSOS() {
     unsigned long now = millis();
 
     // --- LoRa Transmission (Every 2 Minutes) ---
-    if (now - lastLoRaTx > LORA_INTERVAL) {
+    if (now - lastLoRaTx > LORA_TX_INTERVAL) {
         lastLoRaTx = now;
         String msg = "SOS! Lat:" + String(gps.location.lat(), 6) + " Lon:" + String(gps.location.lng(), 6);
         Serial.print("Sending LoRa SOS: "); Serial.println(msg);
@@ -207,7 +179,7 @@ void updateSOS() {
         if (sosStep >= steps) sosStep = 0;
         
         // Even steps are ON, Odd steps are OFF
-        digitalWrite(FLASHLIGHT_PIN, (sosStep % 2 == 0) ? HIGH : LOW);
+        digitalWrite(PIN_FLASHLIGHT, (sosStep % 2 == 0) ? HIGH : LOW);
     }
 }
 
@@ -294,7 +266,7 @@ void updateStatusLED() {
             pixels.setPixelColor(0, pixels.Color(pulseBrightness, 0, 0));
             pixels.show();
             pulseBrightness += pulseDir;
-            if (pulseBrightness >= 100 || pulseBrightness <= 0) { // Max brightness 100
+            if (pulseBrightness >= LED_BRIGHTNESS || pulseBrightness <= 0) { // Max brightness
                 pulseDir = -pulseDir;
             }
             lastPulseTime = millis();
@@ -308,15 +280,15 @@ void updateStatusLED() {
 
 void setup() {
     // Power on VExt for sensors (GPS, LoRa, OLED)
-    pinMode(VEXT_PIN, OUTPUT);
-    digitalWrite(VEXT_PIN, HIGH);
+    pinMode(PIN_VEXT, OUTPUT);
+    digitalWrite(PIN_VEXT, HIGH);
     delay(100); // Wait for power to stabilize
 
-    Serial.begin(115200);
+    Serial.begin(SERIAL_BAUD);
 
     // Init NeoPixel
     pixels.begin();
-    pixels.setBrightness(50);
+    pixels.setBrightness(LED_BRIGHTNESS); // 40% Brightness (approx 100/255)
     pixels.clear();
     pixels.show();
 
@@ -327,17 +299,17 @@ void setup() {
     // Power Optimization: Turn off Radios
     WiFi.mode(WIFI_OFF);
     btStop();
-    setCpuFrequencyMhz(240); // Start with high performance for UI
+    setCpuFrequencyMhz(CPU_FREQ_HIGH); // Start with high performance for UI
 
     // Wakeup Safety Check (Prevent accidental pocket activation)
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    pinMode(PIN_BUTTON, INPUT_PULLUP);
     if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0) {
         // Woke up by button. Verify hold duration.
         unsigned long wakeStart = millis();
         bool wakeConfirmed = false;
         
         // Wait for user to hold button for 2 seconds
-        while (digitalRead(BUTTON_PIN) == LOW) {
+        while (digitalRead(PIN_BUTTON) == LOW) {
             if (millis() - wakeStart > 2000) { 
                 wakeConfirmed = true;
                 break;
@@ -347,7 +319,7 @@ void setup() {
         
         if (!wakeConfirmed) {
             // Button released too early -> Go back to sleep immediately
-            esp_sleep_enable_ext0_wakeup((gpio_num_t)BUTTON_PIN, 0);
+            esp_sleep_enable_ext0_wakeup((gpio_num_t)PIN_BUTTON, 0);
             esp_deep_sleep_start();
         }
     }
@@ -356,19 +328,19 @@ void setup() {
     Serial.println("\n\n=== ESP32-S3 Bring Em Home ===");
     
     // Button Setup
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    pinMode(PIN_BUTTON, INPUT_PULLUP);
     lastInteractionTime = millis();
 
     // Vibration Setup
-    pinMode(VIB_PIN, OUTPUT);
-    digitalWrite(VIB_PIN, LOW);
+    pinMode(PIN_VIB_MOTOR, OUTPUT);
+    digitalWrite(PIN_VIB_MOTOR, LOW);
 
     // Flashlight Setup
-    pinMode(FLASHLIGHT_PIN, OUTPUT);
-    digitalWrite(FLASHLIGHT_PIN, LOW);
+    pinMode(PIN_FLASHLIGHT, OUTPUT);
+    digitalWrite(PIN_FLASHLIGHT, LOW);
 
     // Initialize Sensors
-    if (!Wire.begin(I2C_SDA, I2C_SCL)) {
+    if (!Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL)) {
         fatalError("I2C Bus Fehler!");
     }
     
@@ -380,12 +352,12 @@ void setup() {
     bno.setExtCrystalUse(true);
 
     // Initialize GPS (ATGM336H typically 9600 baud)
-    Serial1.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+    Serial1.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
     // GPS defaults to ON when powered
 
     // Initialize LoRa (SX1262)
-    loraSPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_NSS);
-    int state = radio.begin(868.0, 125.0, 9, 7, 0x12, 10, 8, 0, false); // EU868
+    loraSPI.begin(PIN_LORA_SCK, PIN_LORA_MISO, PIN_LORA_MOSI, PIN_LORA_NSS);
+    int state = radio.begin(LORA_FREQ, 125.0, 9, 7, 0x12, 10, 8, 0, false); // EU868
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println("LoRa Init Success!");
         radio.sleep(); // Sleep immediately
@@ -547,7 +519,7 @@ void loop() {
                 if (!isDisplayOn) { 
                     u8g2.setPowerSave(0); 
                     isDisplayOn = true; 
-                    setCpuFrequencyMhz(240);
+                    // setCpuFrequencyMhz(240); // Keep at 80MHz
                 }
                 u8g2.clearBuffer();
                 u8g2.setFont(u8g2_font_ncenB12_tr);
@@ -560,7 +532,7 @@ void loop() {
                 if (!isDisplayOn) { 
                     u8g2.setPowerSave(0); 
                     isDisplayOn = true; 
-                    setCpuFrequencyMhz(240);
+                    // setCpuFrequencyMhz(240); // Keep at 80MHz
                 }
                 u8g2.clearBuffer();
                 u8g2.setFont(u8g2_font_ncenB12_tr);
@@ -649,7 +621,7 @@ void loop() {
 
     // 7. Vibration Logic
     if (isVibrating && (millis() - vibrationStartTime > 500)) {
-        digitalWrite(VIB_PIN, LOW);
+        digitalWrite(PIN_VIB_MOTOR, LOW);
         isVibrating = false;
     }
 
@@ -662,6 +634,9 @@ void loop() {
 
     // 9. Update Display
     if (isDisplayOn) {
+        // Ensure high performance when display is ON
+        if (getCpuFrequencyMhz() < 240) setCpuFrequencyMhz(240);
+
         static unsigned long lastUpdate = 0;
         if (millis() - lastUpdate > 100) { // 10Hz update for smooth compass
             lastUpdate = millis();
