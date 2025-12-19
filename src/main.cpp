@@ -21,6 +21,18 @@
 #include <Arduino_GFX_Library.h>
 #include <Adafruit_HMC5883_U.h>
 #include <Preferences.h>
+#include "esp_lcd_touch_axs5106l.h" // Include Touch Driver
+
+// Color Definitions
+#define BLACK   0x0000
+#define BLUE    0x001F
+#define RED     0xF800
+#define GREEN   0x07E0
+#define CYAN    0x07FF
+#define MAGENTA 0xF81F
+#define YELLOW  0xFFE0
+#define WHITE   0xFFFF
+#define ORANGE  0xFD20
 
 // Pin definitions for Waveshare ESP32-S3 1.47" Touch LCD
 // Updated to match official Waveshare example
@@ -31,11 +43,15 @@
 #define TFT_RST    47
 #define TFT_BLK    46
 
+// Touch Pins
+#define TOUCH_RST  40
+#define TOUCH_INT  48
+
 // GPS Serial (UART1)
 #define GPS_RX     18
 #define GPS_TX     17
 
-// I2C for Compass (HMC5883L)
+// I2C for Compass (HMC5883L) and Touch
 #define I2C_SDA    8
 #define I2C_SCL    9
 
@@ -46,6 +62,7 @@
 // Display settings
 #define SCREEN_WIDTH  172
 #define SCREEN_HEIGHT 320
+#define ROTATION 1 // Landscape mode
 
 // Compass arrow display position
 #define COMPASS_CENTER_X  280
@@ -55,7 +72,12 @@
 // Create objects
 Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCLK, TFT_MOSI);
 // Waveshare 1.47" uses ST7789 driver with specific offsets and resolution
-Arduino_GFX *tft = new Arduino_ST7789(bus, TFT_RST, 0 /* rotation */, false /* IPS */, SCREEN_WIDTH, SCREEN_HEIGHT, 34 /* col_offset1 */, 0 /* row_offset1 */, 34 /* col_offset2 */, 0 /* row_offset2 */);
+Arduino_GFX *tft = new Arduino_ST7789(bus, TFT_RST, ROTATION /* rotation */, false /* IPS */, SCREEN_WIDTH, SCREEN_HEIGHT, 34 /* col_offset1 */, 0 /* row_offset1 */, 34 /* col_offset2 */, 0 /* row_offset2 */);
+
+// Touch Data
+touch_data_t touch_data;
+unsigned long lastTouchTime = 0;
+
 
 // Initialization sequence for JD9853 / ST7789 on Waveshare 1.47"
 void lcd_reg_init(void) {
@@ -189,6 +211,9 @@ bool showHomeSavedFeedback = false;
 unsigned long homeSavedFeedbackTime = 0;
 const unsigned long HOME_SAVED_FEEDBACK_DURATION = 1000; // 1 second
 
+void loadHomePosition(); // Forward declaration
+void saveHomePosition(); // Forward declaration
+
 void setup() {
   Serial.begin(115200);
   Serial.println("Bring Em Home - Starting...");
@@ -215,7 +240,7 @@ void setup() {
   
   lcd_reg_init(); // Custom init for JD9853/ST7789 on Waveshare 1.47"
   
-  tft->setRotation(1); // Landscape
+  tft->setRotation(ROTATION); // Landscape
   tft->fillScreen(BLACK);
   tft->setTextColor(WHITE);
   tft->setTextSize(1);
@@ -224,8 +249,12 @@ void setup() {
   tft->println("Bring Em Home");
   tft->println("Initializing...");
 
-  // Initialize I2C for compass
+  // Initialize I2C for compass and Touch
   Wire.begin(I2C_SDA, I2C_SCL);
+  
+  // Initialize Touch
+  bsp_touch_init(&Wire, TOUCH_RST, TOUCH_INT, ROTATION, SCREEN_WIDTH, SCREEN_HEIGHT);
+  tft->println("Touch: OK");
   
   // Initialize compass
   if (mag.begin()) {
@@ -483,7 +512,23 @@ void updateDisplay() {
 }
 
 void loop() {
-  // Read GPS data
+  // Read Touch
+  bsp_touch_read();
+  if (bsp_touch_get_coordinates(&touch_data)) {
+      Serial.printf("Touch: x=%d, y=%d\n", touch_data.coords[0].x, touch_data.coords[0].y);
+      
+      // Simple Touch Action: Save Home if touched in center
+      // Coordinates are relative to screen rotation
+      if (touch_data.coords[0].x > 50 && touch_data.coords[0].x < 270 && 
+          touch_data.coords[0].y > 50 && touch_data.coords[0].y < 120) {
+          if (millis() - lastTouchTime > 1000) {
+             saveHomePosition();
+             lastTouchTime = millis();
+          }
+      }
+  }
+
+  // Read GPS
   readGPS();
   
   // Read compass
@@ -511,16 +556,23 @@ void loop() {
   updateDisplay();
   
   // Debug output
-  if (gpsValid) {
-    Serial.printf("GPS: %.6f, %.6f | Heading: %.1f° | ", 
-                  currentLat, currentLon, heading);
-    if (homeSet) {
-      Serial.printf("Distance: %.1fm | Bearing: %.1f°\n", 
-                    distanceToHome, bearingToHome);
+  static unsigned long lastDebugTime = 0;
+  if (millis() - lastDebugTime > 1000) {
+    lastDebugTime = millis();
+    Serial.print("Heartbeat... ");
+    if (gpsValid) {
+      Serial.printf("GPS: %.6f, %.6f | Heading: %.1f° | ", 
+                    currentLat, currentLon, heading);
+      if (homeSet) {
+        Serial.printf("Distance: %.1fm | Bearing: %.1f°\n", 
+                      distanceToHome, bearingToHome);
+      } else {
+        Serial.println("No home set");
+      }
     } else {
-      Serial.println("No home set");
+      Serial.println("Waiting for GPS fix...");
     }
   }
   
-  delay(100);
+  delay(10); // Reduced delay for smoother touch response
 }
