@@ -37,7 +37,7 @@ The Heltec Wireless Tracker integrates most components, simplifying the wiring s
 
 ## Features
 
-- ✅ Real-time GPS coordinate display
+- ✅ **Intuitive UI**: Graphical interface with GPS signal bars and battery status.
 - ✅ **Smart Auto-Home**: Automatically sets home on power-up when GPS fix is found.
 - ✅ **Crash Recovery**: Restores home position if device restarts due to software error.
 - ✅ Save home position manually with button press (Long Press)
@@ -47,7 +47,6 @@ The Heltec Wireless Tracker integrates most components, simplifying the wiring s
 - ✅ Digital compass (North Arrow)
 - ✅ Visual navigation arrow (Target Arrow)
 - ✅ Persistent storage of home position
-- ✅ Satellite count display
 - ✅ Low power consumption (Auto-off)
 
 ## 🔋 Power & Battery Life
@@ -132,19 +131,19 @@ The device is optimized for long hikes. It uses dynamic CPU frequency scaling (2
 - The screen displays:
   - **Distance** to home (in meters or km)
   - **Direction Arrow** pointing towards home relative to your current heading
-  - **Breadcrumb Count**: Number of auto-saved waypoints (saved every 2.5 minutes)
+  - **Breadcrumb Count**: Number of auto-saved waypoints (saved every 250m)
 - Follow the arrow to return to your starting point.
 
 ### Navigation Modes
 
 The device has two modes, toggled by a **Double Click** on the button:
 
-1.  **Recording Mode (Default)**
+1.  **Explorer Mode (Default)**
     *   **Compass Arrow**: Points to **North**.
     *   **Display**: Shows distance to Home.
     *   **Action**: Automatically saves breadcrumbs every 250m.
 
-2.  **Backtracking Mode (Return)**
+2.  **Bring me home! Mode**
     *   **Target Arrow**: Points to the **Next Waypoint** or **Home**.
     *   **Display**: Shows distance to the target.
     *   **Action**: Guides you back along your path.
@@ -163,12 +162,12 @@ The display shows:
 - **Compass Heading**: Current direction (0-360°)
 - **Distance**: To Home or Next Waypoint
 - **Visual Arrow**: 
-    - **Recording Mode**: North Indicator
-    - **Backtracking Mode**: Direction to Target
+    - **Explorer Mode**: North Indicator
+    - **Bring me home! Mode**: Direction to Target
 
 ### Finding Your Way Home
 
-1. **Double Click** the button to enter **Backtracking Mode** (Screen shows "RETURN").
+1. **Double Click** the button to enter **Bring me home! Mode** (Screen shows "BRING ME HOME!").
 2. Follow the **Arrow**.
 3. The device will guide you from waypoint to waypoint until you reach Home.
 

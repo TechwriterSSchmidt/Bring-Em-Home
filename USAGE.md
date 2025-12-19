@@ -36,7 +36,7 @@ The device is operated by a single button (GPIO 14). The software includes debou
 | Action | Gesture | Function |
 |--------|---------|----------|
 | **Toggle Display** | 1 Click | Turns screen ON/OFF to save power. |
-| **Switch Mode** | 2 Clicks | Toggles between **Explore Mode** (Recording) and **Return Mode** (Backtracking). |
+| **Switch Mode** | 2 Clicks | Toggles between **Explorer Mode** (Recording) and **Bring Me Home Mode** (Backtracking). |
 | **Flashlight** | 3 Clicks | Toggles the High Power LED flashlight. |
 | **SOS Signal** | 4 Clicks | Activates SOS Morse code flashing. |
 | **SOS Signal** | Hold >3s | Activates/Deactivates SOS Mode (Alternative). |
@@ -45,54 +45,52 @@ The device is operated by a single button (GPIO 14). The software includes debou
 
 ### Screen Layout
 
-```
-┌─────────────────────────────────────┐
-│ Bring Em Home                       │ ← Title (Yellow)
-├─────────────────────────────────────┤
-│ GPS: LOCKED  Sats: 8               │ ← GPS Status (Green/Red)
-│ Lat: 48.123456                     │ ← Current Position (Cyan)
-│ Lon: 11.123456                     │
-│ Heading: 045°                      │ ← Compass (Magenta)
-├─────────────────────────────────────┤
-│ HOME POSITION SET                   │ ← Home Status (Yellow)
-│ Home: 48.120000                    │ ← Home Coords (Cyan)
-│       11.120000                    │
-│ Distance: 345 m                    │ ← Distance (Green)
-│ Bearing: 270°                      │ ← Direction (Green)
-│                          ↑         │ ← Arrow to Home
-│                        Home        │
-├─────────────────────────────────────┤
-│ BOOT: Save home position           │ ← Instructions
-└─────────────────────────────────────┘
-```
+The display uses a graphical interface to show all important information at a glance.
+
+**Top Bar (Status):**
+- **Left**: Status Icons
+  - `L`: Flashlight is ON
+  - `SOS`: SOS Mode Active (shows countdown to next LoRa beacon)
+- **Center**: Mode Title
+  - `EXPLORER`: Recording path, waiting to set Home.
+  - `BRING ME HOME!`: Navigating back to start.
+- **Right**: 
+  - **Battery**: Current charge in %
+  - **GPS Signal**: 5-bar signal strength indicator (like a phone)
+  - **M:x**: Compass Calibration Status (0=Uncalibrated, 3=Fully Calibrated)
+
+**Center Area (Navigation):**
+- **Satellite Dish Animation**: Shown when searching for GPS signal.
+- **Navigation Arrow**: 
+  - Points the way to your destination (Home).
+  - **Up**: Walk straight.
+  - **Left/Right**: Turn.
+  - **Down**: Turn around.
+  - In `EXPLORER` mode, the arrow acts as a compass (North indicator).
+
+**Bottom Area (Info):**
+- **Distance**: Distance to Home (in meters or km).
+- **Label**: "HOME" (Destination) or "WAITING GPS".
 
 ### Status Indicators
 
-**GPS Status Line**:
-- 🔴 **"GPS: SEARCHING..."** - No GPS lock, acquiring satellites
-- 🟢 **"GPS: LOCKED"** - Valid GPS position available
-- **Sats: X** - Number of satellites in view (4+ needed, 6+ is good)
+**GPS Signal Bars**:
+- **0 Bars**: No GPS fix.
+- **1-2 Bars**: Weak signal (low accuracy).
+- **3-5 Bars**: Strong signal (high accuracy).
 
 **Home Status**:
-- 🟠 **"NO HOME SET"** - Press BOOT to save current position as home
-- 🟡 **"HOME POSITION SET"** - Home coordinates saved, navigation active
-
-**Navigation Arrow**:
-- Green arrow appears when home is set and GPS is locked
-- Arrow points toward home position (relative to your heading)
-- Arrow at top = walk straight ahead
-- Arrow to right = turn right
-- Arrow to left = turn left
-- Arrow at bottom = turn around (you're going wrong way)
+- In `EXPLORER` mode, the device automatically sets the Home position once GPS is locked.
+- When `BRING ME HOME!` is active, the arrow guides you back to that position.
 
 ## Navigation Instructions
 
 ### Basic Navigation
 
-1. **Check GPS Lock**: Ensure GPS shows "LOCKED"
-2. **Check Distance**: See how far you are from home
-3. **Check Bearing**: Direction to home in degrees (0°=North, 90°=East, 180°=South, 270°=West)
-4. **Follow Arrow**: Turn until arrow points up, then walk straight
+1. **Check GPS**: Ensure you have signal bars (at least 2-3).
+2. **Check Mode**: Ensure you are in `BRING ME HOME!` mode.
+3. **Follow Arrow**: Turn your body until the arrow points **UP**.
+4. **Walk**: Walk in that direction. The distance should decrease.
 
 ### Step-by-Step Navigation
 

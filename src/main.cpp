@@ -54,10 +54,10 @@ U8G2_SH1107_128X128_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 
 // App Modes
 enum AppMode {
-    MODE_RECORDING,
-    MODE_BACKTRACKING
+    MODE_EXPLORE,
+    MODE_BRING_HOME
 };
-AppMode currentMode = MODE_RECORDING;
+AppMode currentMode = MODE_EXPLORE;
 
 // Navigation Data
 double homeLat = 0.0;
@@ -249,11 +249,28 @@ void updateStatusLED() {
     }
 }
 
+int getBatteryPercent() {
+    // Heltec Wireless Tracker V1.1: GPIO 1, Divider ~2
+    // 4.2V = 100%, 3.3V = 0%
+    // Using analogReadMilliVolts for factory calibrated reading
+    uint32_t voltage_mv = analogReadMilliVolts(1) * 2; // Multiply by 2 for voltage divider
+    
+    // Simple linear mapping
+    // 4200mV = 100%, 3300mV = 0%
+    int pct = (int)((voltage_mv - 3300) * 100 / (4200 - 3300));
+    if (pct > 100) pct = 100;
+    if (pct < 0) pct = 0;
+    return pct;
+}
+
 void setup() {
     // Power on VExt for sensors (GPS, LoRa, OLED)
     pinMode(PIN_VEXT, OUTPUT);
     digitalWrite(PIN_VEXT, HIGH);
     delay(100); // Wait for power to stabilize
+
+    // ADC Setup for Battery
+    analogSetAttenuation(ADC_11db);
 
     Serial.begin(SERIAL_BAUD);
 
@@ -466,8 +483,8 @@ void loop() {
             }
         } else if (clickCount >= 2) {
             // Double Click: Toggle Mode
-            if (currentMode == MODE_RECORDING) {
-                currentMode = MODE_BACKTRACKING;
+            if (currentMode == MODE_EXPLORE) {
+                currentMode = MODE_BRING_HOME;
                 // Find closest breadcrumb to start with
                 if (!breadcrumbs.empty() && gps.location.isValid()) {
                     double minDst = 99999999;
@@ -491,12 +508,12 @@ void loop() {
                     // setCpuFrequencyMhz(240); // Keep at 80MHz
                 }
                 u8g2.clearBuffer();
-                u8g2.setFont(u8g2_font_ncenB12_tr);
-                u8g2.drawStr(20, 60, "RETURN");
+                u8g2.setFont(u8g2_font_ncenB10_tr); // Smaller font to fit
+                u8g2.drawStr(5, 60, "BRING ME HOME!");
                 u8g2.sendBuffer();
                 delay(1000);
             } else {
-                currentMode = MODE_RECORDING;
+                currentMode = MODE_EXPLORE;
                 // Feedback
                 if (!isDisplayOn) { 
                     u8g2.setPowerSave(0); 
@@ -505,7 +522,7 @@ void loop() {
                 }
                 u8g2.clearBuffer();
                 u8g2.setFont(u8g2_font_ncenB12_tr);
-                u8g2.drawStr(20, 60, "EXPLORE");
+                u8g2.drawStr(20, 60, "EXPLORER");
                 u8g2.sendBuffer();
                 delay(1000);
             }
@@ -552,7 +569,7 @@ void loop() {
     }
 
     // 5. Breadcrumb Logic (Recording)
-    if (currentMode == MODE_RECORDING && gps.location.isValid()) {
+    if (currentMode == MODE_EXPLORE && gps.location.isValid()) {
         bool shouldSave = false;
         if (breadcrumbs.empty()) {
             shouldSave = true;
@@ -574,7 +591,7 @@ void loop() {
     }
 
     // 6. Backtrack Logic (Target Update)
-    if (currentMode == MODE_BACKTRACKING && gps.location.isValid() && !breadcrumbs.empty()) {
+    if (currentMode == MODE_BRING_HOME && gps.location.isValid() && !breadcrumbs.empty()) {
         if (targetBreadcrumbIndex >= 0) {
             double distToTarget = gps.distanceBetween(gps.location.lat(), gps.location.lng(), 
                                                     breadcrumbs[targetBreadcrumbIndex].lat, 
@@ -611,6 +628,7 @@ void loop() {
             lastUpdate = millis();
             
             u8g2.clearBuffer();
+            int w = 0;
             
             // --- Header ---
             // Top Line
@@ -620,26 +638,49 @@ void loop() {
             u8g2.setFont(u8g2_font_5x7_tr);
             u8g2.setCursor(0, 0);
             if (isFlashlightOn) u8g2.print("L ");
-            if (isSOSActive) u8g2.print("SOS ");
-
-            // Mode Title (Centered)
-            u8g2.setFont(u8g2_font_6x12_tr);
-            String title = (currentMode == MODE_RECORDING) ? "EXPLORE" : "RETURN";
-            int w = u8g2.getStrWidth(title.c_str());
-            u8g2.setCursor((SCREEN_WIDTH - w) / 2, 2);
-            u8g2.print(title);
-
-            // Satellites (Top Right)
-            u8g2.setCursor(110, 0);
-            if (gps.location.isValid()) {
-                u8g2.print(gps.satellites.value());
-            } else {
-                u8g2.print("X");
+            if (isSOSActive) {
+                u8g2.print("SOS ");
+                // Countdown for next LoRa TX
+                int secToNext = (LORA_TX_INTERVAL - (millis() - lastLoRaTx)) / 1000;
+                if (secToNext < 0) secToNext = 0;
+                u8g2.print(secToNext);
             }
 
-            // Calibration (Small, Left of Sats)
-            u8g2.setCursor(90, 0);
-            u8g2.printf("M:%d", mag);
+            // Mode Title (Centered)
+            if (!isSOSActive) {
+                u8g2.setFont(u8g2_font_6x12_tr);
+                String title = (currentMode == MODE_EXPLORE) ? "EXPLORER" : "BRING ME HOME!";
+                w = u8g2.getStrWidth(title.c_str());
+                u8g2.setCursor((SCREEN_WIDTH - w) / 2, 2);
+                u8g2.print(title);
+            }
+
+            // GPS Signal Bar (Top Right)
+            int sats = gps.satellites.value();
+            int bars = 0;
+            if (gps.location.isValid()) {
+                if (sats >= 6) bars = 5;
+                else if (sats >= 5) bars = 4;
+                else if (sats >= 4) bars = 3;
+                else if (sats >= 3) bars = 2;
+                else bars = 1;
+            }
+            
+            // Draw Bars
+            for (int i=0; i<5; i++) {
+                int h = (i+1) * 2;
+                if (i < bars) {
+                    u8g2.drawBox(110 + (i*3), 12-h, 2, h);
+                } else {
+                    u8g2.drawFrame(110 + (i*3), 12-h, 2, h);
+                }
+            }
+
+            // Battery (Left of Sats)
+            u8g2.setFont(u8g2_font_5x7_tr);
+            u8g2.setCursor(85, 0);
+            u8g2.print(getBatteryPercent());
+            u8g2.print("%");
 
             // --- Main Content ---
             
@@ -675,6 +716,11 @@ void loop() {
                 u8g2.setCursor((SCREEN_WIDTH - w) / 2, 100);
                 u8g2.print(txt);
                 
+                // Calibration (Bottom Left)
+                u8g2.setFont(u8g2_font_5x7_tr);
+                u8g2.setCursor(0, 120);
+                u8g2.printf("M:%d", mag);
+
                 u8g2.sendBuffer();
                 return; // Skip rest of drawing
             }
@@ -684,7 +730,7 @@ void loop() {
             double targetLon = homeLon;
             bool targetIsHome = true;
             
-            if (currentMode == MODE_BACKTRACKING && targetBreadcrumbIndex >= 0 && !breadcrumbs.empty()) {
+            if (currentMode == MODE_BRING_HOME && targetBreadcrumbIndex >= 0 && !breadcrumbs.empty()) {
                 targetLat = breadcrumbs[targetBreadcrumbIndex].lat;
                 targetLon = breadcrumbs[targetBreadcrumbIndex].lon;
                 targetIsHome = false;
@@ -695,7 +741,7 @@ void loop() {
             double bearing = 0;
             bool showArrow = false;
 
-            if (currentMode == MODE_RECORDING) {
+            if (currentMode == MODE_EXPLORE) {
                  // Compass Mode - Always Active
                  if (gps.location.isValid() && hasHome) {
                     dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
@@ -721,7 +767,7 @@ void loop() {
                 drawArrow(SCREEN_WIDTH/2, arrowCy, 35, relBearing);
                 
                 // N indicator for Recording mode
-                if (currentMode == MODE_RECORDING) {
+                if (currentMode == MODE_EXPLORE) {
                     float angleRad = (relBearing - 90) * PI / 180.0;
                     int nx = (SCREEN_WIDTH/2) + 45 * cos(angleRad);
                     int ny = arrowCy + 45 * sin(angleRad);
@@ -731,14 +777,14 @@ void loop() {
                 }
             } else {
                 // No GPS (Backtracking) or No Home (Recording - but arrow is always shown now)
-                if (currentMode == MODE_BACKTRACKING && !gps.location.isValid()) {
+                if (currentMode == MODE_BRING_HOME && !gps.location.isValid()) {
                     u8g2.setFont(u8g2_font_ncenB10_tr);
                     u8g2.drawStr(35, 60, "NO GPS");
                 }
             }
 
             // Distance Text (Bottom)
-            if (gps.location.isValid() && (hasHome || currentMode == MODE_BACKTRACKING)) {
+            if (gps.location.isValid() && (hasHome || currentMode == MODE_BRING_HOME)) {
                 String distStr;
                 if (dist < 1000) distStr = String(dist, 0) + " m";
                 else distStr = String(dist / 1000.0, 2) + " km";
@@ -754,7 +800,7 @@ void loop() {
                 w = u8g2.getStrWidth(label.c_str());
                 u8g2.setCursor((SCREEN_WIDTH - w) / 2, 120); // Bottom
                 u8g2.print(label);
-            } else if (currentMode == MODE_RECORDING && !hasHome) {
+            } else if (currentMode == MODE_EXPLORE && !hasHome) {
                  if (gps.location.isValid()) {
                     u8g2.setFont(u8g2_font_ncenB10_tr);
                     u8g2.drawStr(25, 110, "SET HOME");
@@ -763,6 +809,11 @@ void loop() {
                     u8g2.drawStr(25, 110, "WAITING GPS");
                  }
             }
+
+            // Calibration (Bottom Left)
+            u8g2.setFont(u8g2_font_5x7_tr);
+            u8g2.setCursor(0, 120);
+            u8g2.printf("M:%d", mag);
 
             u8g2.sendBuffer();
         }
