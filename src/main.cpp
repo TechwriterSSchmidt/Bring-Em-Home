@@ -40,18 +40,20 @@
 #define TFT_CS     21
 #define TFT_SCLK   38
 #define TFT_MOSI   39
-#define TFT_RST    47
+#define TFT_RST    40  // Corrected: Display Reset is 40
 #define TFT_BLK    46
 
 // Touch Pins
-#define TOUCH_RST  40
+#define TOUCH_RST  47  // Corrected: Touch Reset is 47
 #define TOUCH_INT  48
+#define TOUCH_SDA  42
+#define TOUCH_SCL  41
 
 // GPS Serial (UART1)
 #define GPS_RX     18
 #define GPS_TX     17
 
-// I2C for Compass (HMC5883L) and Touch
+// I2C for Compass (HMC5883L)
 #define I2C_SDA    8
 #define I2C_SCL    9
 
@@ -249,11 +251,14 @@ void setup() {
   tft->println("Bring Em Home");
   tft->println("Initializing...");
 
-  // Initialize I2C for compass and Touch
+  // Initialize I2C for compass
   Wire.begin(I2C_SDA, I2C_SCL);
   
+  // Initialize I2C for Touch
+  Wire1.begin(TOUCH_SDA, TOUCH_SCL);
+  
   // Initialize Touch
-  bsp_touch_init(&Wire, TOUCH_RST, TOUCH_INT, ROTATION, SCREEN_WIDTH, SCREEN_HEIGHT);
+  bsp_touch_init(&Wire1, TOUCH_RST, TOUCH_INT, ROTATION, SCREEN_WIDTH, SCREEN_HEIGHT);
   tft->println("Touch: OK");
   
   // Initialize compass
