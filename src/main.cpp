@@ -805,9 +805,18 @@ void loop() {
             u8g2.setFont(u8g2_font_5x7_tr);
 
             // 1. Battery (Left)
-            u8g2.setCursor(0, 10);
-            u8g2.print("B:");
-            u8g2.print(getBatteryPercent());
+            // Draw Vertical Battery Icon
+            u8g2.drawFrame(0, 4, 6, 10); // Body
+            u8g2.drawBox(2, 2, 2, 2);    // Terminal (Knob)
+            
+            // Fill Level
+            int pct = getBatteryPercent();
+            int h = (pct * 8) / 100; // Max height 8px inside
+            if (h > 0) u8g2.drawBox(1, 4 + (10-1-h), 4, h);
+            
+            // Text
+            u8g2.setCursor(8, 12); // Right of icon
+            u8g2.print(pct);
             u8g2.print("%");
 
             // 2. Compass (Center)

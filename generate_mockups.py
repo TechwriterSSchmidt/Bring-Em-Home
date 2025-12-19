@@ -26,8 +26,16 @@ def draw_header(draw):
     
     font_small = get_font(10) # Approx 5x7
     
-    # 1. Battery
-    draw.text((0, 2), "B:85%", font=font_small, fill=FG_COLOR)
+    # 1. Battery Icon (Vertical)
+    # Body
+    draw.rectangle((0, 4, 5, 13), outline=FG_COLOR)
+    # Knob
+    draw.rectangle((1, 2, 3, 4), fill=FG_COLOR)
+    # Fill (85%)
+    draw.rectangle((1, 6, 4, 12), fill=FG_COLOR)
+    
+    # Text
+    draw.text((8, 2), "85%", font=font_small, fill=FG_COLOR)
     
     # 2. Compass
     comp_text = "C:Ok"
