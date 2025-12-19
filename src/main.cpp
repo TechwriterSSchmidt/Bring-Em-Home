@@ -806,17 +806,17 @@ void loop() {
 
             // 1. Battery (Left)
             u8g2.setCursor(0, 10);
-            u8g2.print("Bat:");
+            u8g2.print("B:");
             u8g2.print(getBatteryPercent());
             u8g2.print("%");
 
             // 2. Compass (Center)
             String compStr = "Bad";
-            if (mag == 3) compStr = "Precise";
+            if (mag == 3) compStr = "Good";
             else if (mag == 2) compStr = "Ok";
             else if (mag == 1) compStr = "Low";
             
-            String compDisp = "Comp:" + compStr;
+            String compDisp = "C:" + compStr;
             w = u8g2.getStrWidth(compDisp.c_str());
             u8g2.setCursor((128 - w) / 2, 10);
             u8g2.print(compDisp);
@@ -916,7 +916,7 @@ void loop() {
                 int arrowCy = 64; // Center of screen
                 // Show cardinals only in Explore Mode (where arrow points North)
                 bool showCardinals = (currentMode == MODE_EXPLORE);
-                drawArrow(SCREEN_WIDTH/2, arrowCy, 35, relBearing, showCardinals);
+                drawArrow(SCREEN_WIDTH/2, arrowCy, 30, relBearing, showCardinals);
                 
                 // N indicator for Recording mode (REMOVED - now part of drawArrow)
                 /*

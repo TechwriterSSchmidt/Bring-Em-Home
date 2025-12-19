@@ -27,10 +27,10 @@ def draw_header(draw):
     font_small = get_font(10) # Approx 5x7
     
     # 1. Battery
-    draw.text((0, 2), "Bat:85%", font=font_small, fill=FG_COLOR)
+    draw.text((0, 2), "B:85%", font=font_small, fill=FG_COLOR)
     
     # 2. Compass
-    comp_text = "Comp:Ok"
+    comp_text = "C:Ok"
     # Center calculation roughly
     w = draw.textlength(comp_text, font=font_small)
     draw.text(((128 - w) / 2, 2), comp_text, font=font_small, fill=FG_COLOR)
@@ -105,7 +105,7 @@ def generate_nav():
     
     # Arrow (Center)
     cx, cy = 64, 64
-    r = 35
+    r = 30
     
     # Draw Arrow (Pointing North/Up)
     # Tip
