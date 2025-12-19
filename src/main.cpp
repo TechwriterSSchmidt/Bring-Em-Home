@@ -897,9 +897,9 @@ void loop() {
 
                 // Progress Bar Animation
                 int barWidth = 64; // Half screen width
-                int barHeight = 6;
+                int barHeight = 12;
                 int barX = (SCREEN_WIDTH - barWidth) / 2;
-                int barY = y + 8;
+                int barY = y + 15;
 
                 u8g2.drawFrame(barX, barY, barWidth, barHeight);
 

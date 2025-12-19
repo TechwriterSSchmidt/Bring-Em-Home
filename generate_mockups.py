@@ -100,9 +100,9 @@ def generate_searching():
     
     # Progress Bar
     bar_width = 64
-    bar_height = 6
+    bar_height = 12
     bar_x = (WIDTH - bar_width) / 2
-    bar_y = 68 # Matches C++ code
+    bar_y = 75 # Matches C++ code (y=60 + 15)
     
     # Frame
     draw.rectangle((bar_x, bar_y, bar_x + bar_width, bar_y + bar_height), outline=FG_COLOR)
