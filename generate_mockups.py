@@ -87,20 +87,29 @@ def generate_searching():
     
     draw_header(draw)
     
-    # Text Animation
+    # Text
     font_text = get_font(14, bold=True)
     text = "Searching SATs"
     w = draw.textlength(text, font=font_text)
     
-    # Center roughly
-    total_w = w + 20 # Space for dots
-    start_x = (WIDTH - total_w) / 2
-    y = 64 - 7 # Center vertically
+    # Center
+    start_x = (WIDTH - w) / 2
+    y_text = 46 # Approx top for baseline at 60
     
-    draw.text((start_x, y), text, font=font_text, fill=FG_COLOR)
+    draw.text((start_x, y_text), text, font=font_text, fill=FG_COLOR)
     
-    # Dots
-    draw.text((start_x + w, y), " . . .", font=font_text, fill=FG_COLOR)
+    # Progress Bar
+    bar_width = 64
+    bar_height = 6
+    bar_x = (WIDTH - bar_width) / 2
+    bar_y = 68 # Matches C++ code
+    
+    # Frame
+    draw.rectangle((bar_x, bar_y, bar_x + bar_width, bar_y + bar_height), outline=FG_COLOR)
+    
+    # Fill (50%)
+    fill_width = bar_width / 2
+    draw.rectangle((bar_x + 2, bar_y + 2, bar_x + fill_width, bar_y + bar_height - 2), fill=FG_COLOR)
     
     img.save("mockup_searching.png")
     print("Generated mockup_searching.png")

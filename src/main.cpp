@@ -843,30 +843,34 @@ void loop() {
             
             // If NO GPS, show Text Animation
             if (!gps.location.isValid()) {
-                // Animation Timer
-                static int animPhase = 0;
-                static unsigned long lastAnim = 0;
-                if (millis() - lastAnim > 500) {
-                    animPhase = (animPhase + 1) % 4;
-                    lastAnim = millis();
-                }
-
                 u8g2.setFont(u8g2_font_ncenB10_tr);
                 const char* baseTxt = "Searching SATs";
                 int w = u8g2.getStrWidth(baseTxt);
                 
-                // Center the text block roughly (accounting for dots width approx 15px)
-                int totalW = w + 15; 
-                int startX = (SCREEN_WIDTH - totalW) / 2;
-                int y = 64;
+                // Center the text
+                int startX = (SCREEN_WIDTH - w) / 2;
+                int y = 60;
 
                 u8g2.setCursor(startX, y);
                 u8g2.print(baseTxt);
 
-                // Animated Dots
-                if (animPhase >= 1) u8g2.print(" .");
-                if (animPhase >= 2) u8g2.print(" .");
-                if (animPhase >= 3) u8g2.print(" .");
+                // Progress Bar Animation
+                int barWidth = 64; // Half screen width
+                int barHeight = 6;
+                int barX = (SCREEN_WIDTH - barWidth) / 2;
+                int barY = y + 8;
+
+                u8g2.drawFrame(barX, barY, barWidth, barHeight);
+
+                static int animPos = 0;
+                static unsigned long lastAnim = 0;
+                if (millis() - lastAnim > 50) {
+                    animPos = (animPos + 2) % (barWidth - 3);
+                    lastAnim = millis();
+                }
+                
+                // Draw filling bar
+                if (animPos > 0) u8g2.drawBox(barX + 2, barY + 2, animPos, barHeight - 4);
 
                 u8g2.sendBuffer();
                 return; // Skip rest of drawing
