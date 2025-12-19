@@ -286,13 +286,19 @@ void setup() {
     }
     
     gfx->fillScreen(BLACK);
-    gfx->setCursor(10, 60);
-    gfx->setTextColor(WHITE);
+    
+    // Elegant Splash Screen
+    gfx->drawFastHLine(20, 50, 200, C_SILVER);
+    
+    gfx->setCursor(30, 70);
+    gfx->setTextColor(C_EMERALD);
     gfx->setTextSize(2);
     gfx->println("Bring Em Home");
     
-    gfx->setCursor(10, 100);
-    gfx->setTextColor(YELLOW);
+    gfx->drawFastHLine(20, 100, 200, C_SILVER);
+    
+    gfx->setCursor(40, 130);
+    gfx->setTextColor(C_GOLD);
     gfx->setTextSize(1);
     gfx->println("Waiting for GPS...");
 }
@@ -333,8 +339,8 @@ void loop() {
                     
                     // Visual Feedback
                     if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
-                    gfx->fillScreen(GREEN);
-                    gfx->setCursor(20, 100);
+                    gfx->fillScreen(C_EMERALD);
+                    gfx->setCursor(40, 110);
                     gfx->setTextColor(BLACK);
                     gfx->setTextSize(2);
                     gfx->println("HOME SAVED!");
@@ -343,8 +349,8 @@ void loop() {
                 } else {
                     // Error Feedback
                     if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
-                    gfx->fillScreen(RED);
-                    gfx->setCursor(20, 100);
+                    gfx->fillScreen(C_RUBY);
+                    gfx->setCursor(40, 110);
                     gfx->setTextColor(WHITE);
                     gfx->setTextSize(2);
                     gfx->println("NO GPS FIX!");
@@ -404,8 +410,8 @@ void loop() {
                 
                 // Feedback
                 if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
-                gfx->fillScreen(BLUE);
-                gfx->setCursor(20, 100);
+                gfx->fillScreen(C_RUBY);
+                gfx->setCursor(40, 110);
                 gfx->setTextColor(WHITE);
                 gfx->setTextSize(2);
                 gfx->println("RETURN MODE");
@@ -415,11 +421,11 @@ void loop() {
                 currentMode = MODE_RECORDING;
                 // Feedback
                 if (!isDisplayOn) { digitalWrite(TFT_BL, HIGH); isDisplayOn = true; }
-                gfx->fillScreen(BLACK);
-                gfx->setCursor(20, 100);
-                gfx->setTextColor(WHITE);
+                gfx->fillScreen(C_EMERALD);
+                gfx->setCursor(40, 110);
+                gfx->setTextColor(BLACK);
                 gfx->setTextSize(2);
-                gfx->println("RECORDING");
+                gfx->println("EXPLORE MODE");
                 delay(1000);
                 gfx->fillScreen(BLACK);
             }
