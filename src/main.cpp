@@ -47,6 +47,11 @@
 #define SCREEN_WIDTH  172
 #define SCREEN_HEIGHT 320
 
+// Compass arrow display position
+#define COMPASS_CENTER_X  280
+#define COMPASS_CENTER_Y  100
+#define COMPASS_RADIUS    30
+
 // Create objects
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 TinyGPSPlus gps;
@@ -79,6 +84,11 @@ const unsigned long DISPLAY_UPDATE_INTERVAL = 500; // Update every 500ms
 bool lastBtnSaveState = HIGH;
 unsigned long lastDebounceTime = 0;
 const unsigned long DEBOUNCE_DELAY = 50;
+
+// Home saved feedback state
+bool showHomeSavedFeedback = false;
+unsigned long homeSavedFeedbackTime = 0;
+const unsigned long HOME_SAVED_FEEDBACK_DURATION = 1000; // 1 second
 
 void setup() {
   Serial.begin(115200);
@@ -149,16 +159,9 @@ void saveHomePosition() {
     
     Serial.printf("Home saved: %.6f, %.6f\n", homeLat, homeLon);
     
-    // Visual feedback
-    tft.fillScreen(ST77XX_GREEN);
-    tft.setTextColor(ST77XX_BLACK);
-    tft.setCursor(40, SCREEN_HEIGHT/2 - 10);
-    tft.setTextSize(2);
-    tft.println("HOME SAVED!");
-    delay(1000);
-    tft.fillScreen(ST77XX_BLACK);
-    tft.setTextSize(1);
-    tft.setTextColor(ST77XX_WHITE);
+    // Trigger non-blocking visual feedback
+    showHomeSavedFeedback = true;
+    homeSavedFeedbackTime = millis();
   }
 }
 
@@ -241,6 +244,24 @@ void drawCompassArrow(int centerX, int centerY, int radius, float angle, uint16_
 
 void updateDisplay() {
   unsigned long currentTime = millis();
+  
+  // Handle home saved feedback (non-blocking)
+  if (showHomeSavedFeedback) {
+    if (currentTime - homeSavedFeedbackTime < HOME_SAVED_FEEDBACK_DURATION) {
+      // Show green feedback screen
+      tft.fillScreen(ST77XX_GREEN);
+      tft.setTextColor(ST77XX_BLACK);
+      tft.setCursor(40, SCREEN_HEIGHT/2 - 10);
+      tft.setTextSize(2);
+      tft.println("HOME SAVED!");
+      return; // Skip normal display update
+    } else {
+      // Feedback period ended
+      showHomeSavedFeedback = false;
+      tft.fillScreen(ST77XX_BLACK);
+    }
+  }
+  
   if (currentTime - lastDisplayUpdate < DISPLAY_UPDATE_INTERVAL) {
     return;
   }
@@ -323,7 +344,10 @@ void updateDisplay() {
       
       // Compass arrow showing direction to home
       float relativeAngle = bearingToHome - heading;
-      drawCompassArrow(280, 100, 30, relativeAngle, ST77XX_GREEN);
+      // Normalize angle to -180 to +180 range
+      while (relativeAngle > 180.0) relativeAngle -= 360.0;
+      while (relativeAngle < -180.0) relativeAngle += 360.0;
+      drawCompassArrow(COMPASS_CENTER_X, COMPASS_CENTER_Y, COMPASS_RADIUS, relativeAngle, ST77XX_GREEN);
       
       tft.setCursor(240, 140);
       tft.setTextSize(1);
