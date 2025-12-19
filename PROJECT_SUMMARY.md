@@ -19,7 +19,7 @@ Create a portable, easy-to-use device that:
 
 | Component | Model | Purpose |
 |-----------|-------|---------|
-| Microcontroller | ESP32-S3 | Processing, WiFi/BLE capable |
+| Microcontroller | ESP32-S3R8 | Processing, WiFi/BLE capable, 16MB Flash/8MB PSRAM |
 | Display | Waveshare 1.47" Touch LCD | 172x320 color display |
 | GPS Module | HGLRC M100-5883 M10 | u-blox M10 GPS receiver |
 | Compass | HMC5883L | Integrated in GPS module |
@@ -200,7 +200,9 @@ Create a portable, easy-to-use device that:
 - **Resolution**: 172x320 pixels
 - **Size**: 1.47 inches diagonal
 - **Type**: IPS LCD
-- **Driver**: ST7789V
+- **Driver**: JD9853
+- **Touch Driver**: AXS5106L
+- **Power Management**: ETA6098 (Battery Charger)
 - **Interface**: SPI
 
 ## 🔒 Safety Features

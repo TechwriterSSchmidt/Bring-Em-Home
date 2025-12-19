@@ -4,7 +4,7 @@
  * A device to guide Emilie back to her starting location when lost on hikes.
  * 
  * Hardware:
- * - ESP32-S3 with Waveshare 1.47" Touch LCD Display
+ * - ESP32-S3 with Waveshare 1.47" Touch LCD Display (JD9853 / AXS5106L)
  * - HGLRC M100-5883 M10 GPS Module with Compass (HMC5883L)
  * 
  * Features:

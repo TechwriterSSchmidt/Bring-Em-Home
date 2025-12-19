@@ -30,6 +30,8 @@ The HMC5883L compass is integrated in the GPS module:
 
 ### Display
 The Waveshare ESP32-S3 Touch LCD display is built into the board:
+- Display Driver: JD9853
+- Touch Driver: AXS5106L
 - Pre-wired to the following pins:
   - CS: GPIO 10
   - DC: GPIO 13
