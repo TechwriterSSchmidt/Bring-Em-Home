@@ -8,7 +8,7 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
 
 ## Hardware Requirements
 
-- **ESP32-S3 Development Board** with [Waveshare ESP32-S3 1.47" Touch LCD Display](https://www.waveshare.com/esp32-s3-touch-lcd-1.47.htm)
+- **ESP32-S3 Development Board** with [Waveshare ESP32-S3-LCD-1.3 (240x240)](https://www.waveshare.com/esp32-s3-lcd-1.28.htm) (Note: Link is for similar family, specific 1.3" square model used)
 - **HGLRC M100-5883 M10 GPS Module** with integrated HMC5883L compass
 - Connecting wires
 - USB cable for programming and power
@@ -29,20 +29,22 @@ The HMC5883L compass is integrated in the GPS module:
 - GND → GND
 
 ### Display
-The Waveshare ESP32-S3 Touch LCD display is built into the board:
-- Display Driver: JD9853
-- Touch Driver: AXS5106L
+The Waveshare ESP32-S3-LCD-1.3 display is built into the board:
+- Display Driver: ST7789
+- Resolution: 240x240
 - Pre-wired to the following pins:
-  - CS: GPIO 10
-  - DC: GPIO 13
-  - RST: GPIO 14
-  - MOSI: GPIO 11
-  - SCLK: GPIO 12
-  - Backlight: GPIO 38
+  - CS: GPIO 39
+  - DC: GPIO 38
+  - RST: GPIO 42
+  - MOSI: GPIO 41
+  - SCLK: GPIO 40
+  - Backlight: GPIO 45
 
 ### Buttons
-- **BOOT Button (GPIO 0)**: Save current position as home
-- Built-in on ESP32-S3 board
+- **External Waterproof Button (GPIO 14)**:
+  - **Short Press**: Toggle Display ON / OFF (Timer resets to 5 min when turned ON)
+  - **Long Press (> 2s)**: Save current position as home
+- **BOOT Button (GPIO 0)**: Not used in housing
 
 ## Software Setup
 
@@ -77,11 +79,8 @@ The Waveshare ESP32-S3 Touch LCD display is built into the board:
 
 1. Install the following libraries via Library Manager:
    - TinyGPSPlus
-   - Adafruit GFX Library
-   - Adafruit ST7735 and ST7789 Library
-   - Adafruit BusIO
-   - Adafruit Unified Sensor
-   - Adafruit HMC5883 Unified
+   - GFX Library for Arduino (MoonOnOurNation)
+   - MechaQMC5883 (Mechasolution)
 
 2. Select Board: "ESP32S3 Dev Module"
 3. Set partition scheme to default
@@ -93,8 +92,27 @@ The Waveshare ESP32-S3 Touch LCD display is built into the board:
 
 1. Power on the device
 2. Wait for GPS to acquire satellite lock (may take 1-5 minutes outdoors with clear sky view)
-3. Once GPS shows "LOCKED" on screen, press the **BOOT button** to save your current position as "home"
+3. Once GPS shows valid coordinates, **press and hold the external button for 2 seconds** to save your current position as "home"
 4. The screen will flash green and show "HOME SAVED!"
+
+### Navigation
+
+- The screen displays:
+  - **Distance** to home (in meters or km)
+  - **Direction Arrow** pointing towards home relative to your current heading
+  - **Breadcrumb Count**: Number of auto-saved waypoints (saved every 2.5 minutes)
+- Follow the arrow to return to your starting point.
+
+### Power Saving
+
+- The display automatically turns off after 5 minutes of inactivity.
+- **Short Press** the button to toggle the display ON or OFF.
+- Turning the display ON resets the 5-minute timer.
+
+### Power Saving
+- The display automatically turns off after **5 minutes** of inactivity to save battery.
+- Press the external button briefly to turn the display **ON** or **OFF**.
+- The GPS remains active in the background to keep the lock.
 
 ### Navigation
 
