@@ -123,6 +123,8 @@ Arduino_GFX *gfx = new Arduino_ST7789(
     0             // row_offset2
 );
 
+Arduino_Canvas *canvas = nullptr;
+
 // Helper: Draw Rotated Arrow (Fancy Needle)
 void drawArrow(int cx, int cy, int r, float angleDeg, uint16_t color) {
     float angleRad = (angleDeg - 90) * PI / 180.0; // -90 to point up at 0 deg
@@ -285,6 +287,9 @@ void setup() {
         while(1) { delay(1000); }
     }
     
+    // Create Canvas for flicker-free drawing
+    canvas = new Arduino_Canvas(SCREEN_WIDTH, SCREEN_HEIGHT, gfx);
+
     gfx->fillScreen(BLACK);
     
     // Elegant Splash Screen
@@ -498,35 +503,35 @@ void loop() {
     // 9. Update Display
     if (isDisplayOn) {
         static unsigned long lastUpdate = 0;
-        if (millis() - lastUpdate > 200) { // Faster update for smooth arrow
+        if (millis() - lastUpdate > 100) { // 10Hz update for smooth compass
             lastUpdate = millis();
             
-            gfx->fillScreen(BLACK);
+            canvas->fillScreen(BLACK);
             
             // --- Header ---
             // Top Line
-            gfx->drawFastHLine(20, 35, 200, C_SILVER);
+            canvas->drawFastHLine(20, 35, 200, C_SILVER);
             
             // Mode Title (Centered)
-            gfx->setTextSize(2);
+            canvas->setTextSize(2);
             String title = (currentMode == MODE_RECORDING) ? "EXPLORE" : "RETURN";
             uint16_t titleColor = (currentMode == MODE_RECORDING) ? C_EMERALD : C_RUBY;
             
             int16_t x1, y1;
             uint16_t w, h;
-            gfx->getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
-            gfx->setCursor((SCREEN_WIDTH - w) / 2, 10);
-            gfx->setTextColor(titleColor);
-            gfx->print(title);
+            canvas->getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
+            canvas->setCursor((SCREEN_WIDTH - w) / 2, 10);
+            canvas->setTextColor(titleColor);
+            canvas->print(title);
 
             // Satellites (Small, Top Right)
-            gfx->setTextSize(1);
-            gfx->setTextColor(C_SILVER);
-            gfx->setCursor(190, 5);
+            canvas->setTextSize(1);
+            canvas->setTextColor(C_SILVER);
+            canvas->setCursor(190, 5);
             if (gps.location.isValid()) {
-                gfx->printf("%d", gps.satellites.value());
+                canvas->printf("%d", gps.satellites.value());
             } else {
-                gfx->print("X");
+                canvas->print("X");
             }
 
             // --- Main Content ---
@@ -548,17 +553,17 @@ void loop() {
             bool showArrow = false;
             uint16_t arrowColor = C_SILVER;
 
-            if (gps.location.isValid()) {
-                if (currentMode == MODE_RECORDING) {
-                     // Compass Mode
-                     if (hasHome) {
-                        dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
-                     }
-                     bearing = 0; // North
-                     showArrow = true;
-                     arrowColor = C_EMERALD;
-                } else {
-                    // Backtrack Mode
+            if (currentMode == MODE_RECORDING) {
+                 // Compass Mode - Always Active
+                 if (gps.location.isValid() && hasHome) {
+                    dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
+                 }
+                 bearing = 0; // North
+                 showArrow = true;
+                 arrowColor = C_EMERALD;
+            } else {
+                // Backtrack Mode - Needs GPS
+                if (gps.location.isValid()) {
                     dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
                     bearing = gps.courseTo(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
                     showArrow = true;
@@ -571,31 +576,46 @@ void loop() {
                 int relBearing = (int)bearing - currentHeading;
                 if (relBearing < 0) relBearing += 360;
                 
-                // Draw fancy needle
-                drawArrow(SCREEN_WIDTH/2, 110, 55, relBearing, arrowColor);
+                // Draw fancy needle on Canvas
+                // We need to adapt drawArrow to use canvas or pass it
+                // For now, let's inline the drawing or update drawArrow to take GFX*
+                // But drawArrow uses global 'gfx'. We should update it or duplicate logic.
+                // Let's duplicate logic here for canvas to avoid signature change issues
+                
+                int cx = SCREEN_WIDTH/2;
+                int cy = 110;
+                int r = 55;
+                float angleRad = (relBearing - 90) * PI / 180.0;
+                
+                int x1 = cx + r * cos(angleRad);
+                int y1 = cy + r * sin(angleRad);
+                int x2 = cx - (r * 0.3) * cos(angleRad);
+                int y2 = cy - (r * 0.3) * sin(angleRad);
+                int x3 = cx + (r * 0.35) * cos(angleRad + PI/2);
+                int y3 = cy + (r * 0.35) * sin(angleRad + PI/2);
+                int x4 = cx + (r * 0.35) * cos(angleRad - PI/2);
+                int y4 = cy + (r * 0.35) * sin(angleRad - PI/2);
+                
+                canvas->fillTriangle(x1, y1, x3, y3, x2, y2, arrowColor);
+                canvas->fillTriangle(x1, y1, x4, y4, x2, y2, arrowColor);
+                canvas->fillCircle(cx, cy, 3, C_GOLD);
                 
                 // N indicator for Recording mode
                 if (currentMode == MODE_RECORDING) {
-                    float angleRad = (relBearing - 90) * PI / 180.0;
                     int nx = (SCREEN_WIDTH/2) + 70 * cos(angleRad);
                     int ny = 110 + 70 * sin(angleRad);
-                    gfx->setCursor(nx-6, ny-6);
-                    gfx->setTextColor(C_EMERALD);
-                    gfx->setTextSize(2);
-                    gfx->print("N");
+                    canvas->setCursor(nx-6, ny-6);
+                    canvas->setTextColor(C_EMERALD);
+                    canvas->setTextSize(2);
+                    canvas->print("N");
                 }
             } else {
-                // No GPS or No Home
-                if (!gps.location.isValid()) {
-                    gfx->setCursor(60, 100);
-                    gfx->setTextColor(RED);
-                    gfx->setTextSize(2);
-                    gfx->print("NO GPS");
-                } else if (!hasHome && currentMode == MODE_RECORDING) {
-                    gfx->setCursor(50, 100);
-                    gfx->setTextColor(C_GOLD);
-                    gfx->setTextSize(2);
-                    gfx->print("SET HOME");
+                // No GPS (Backtracking) or No Home (Recording - but arrow is always shown now)
+                if (currentMode == MODE_BACKTRACKING && !gps.location.isValid()) {
+                    canvas->setCursor(60, 100);
+                    canvas->setTextColor(C_RUBY);
+                    canvas->setTextSize(2);
+                    canvas->print("NO GPS");
                 }
             }
 
@@ -605,28 +625,36 @@ void loop() {
                 if (dist < 1000) distStr = String(dist, 0) + " m";
                 else distStr = String(dist / 1000.0, 2) + " km";
                 
-                gfx->setTextSize(3);
-                gfx->getTextBounds(distStr, 0, 0, &x1, &y1, &w, &h);
-                gfx->setCursor((SCREEN_WIDTH - w) / 2, 180);
-                gfx->setTextColor(WHITE);
-                gfx->print(distStr);
+                canvas->setTextSize(3);
+                canvas->getTextBounds(distStr, 0, 0, &x1, &y1, &w, &h);
+                canvas->setCursor((SCREEN_WIDTH - w) / 2, 180);
+                canvas->setTextColor(WHITE);
+                canvas->print(distStr);
                 
                 // Label
                 String label = targetIsHome ? "HOME" : "WAYPOINT";
-                gfx->setTextSize(1);
-                gfx->getTextBounds(label, 0, 0, &x1, &y1, &w, &h);
-                gfx->setCursor((SCREEN_WIDTH - w) / 2, 215);
-                gfx->setTextColor(C_GOLD);
-                gfx->print(label);
+                canvas->setTextSize(1);
+                canvas->getTextBounds(label, 0, 0, &x1, &y1, &w, &h);
+                canvas->setCursor((SCREEN_WIDTH - w) / 2, 215);
+                canvas->setTextColor(C_GOLD);
+                canvas->print(label);
+            } else if (currentMode == MODE_RECORDING && !hasHome) {
+                 // Show "SET HOME" if we have GPS but no home, or just hint
+                 if (gps.location.isValid()) {
+                    canvas->setCursor(50, 180);
+                    canvas->setTextColor(C_GOLD);
+                    canvas->setTextSize(2);
+                    canvas->print("SET HOME");
+                 } else {
+                    canvas->setCursor(50, 180);
+                    canvas->setTextColor(C_SILVER);
+                    canvas->setTextSize(1);
+                    canvas->print("WAITING GPS");
+                 }
             }
 
-            // --- Footer ---
-            // Minimal stats at very bottom
-            // gfx->drawFastHLine(60, 230, 120, C_DARK);
-            // gfx->setCursor(90, 232);
-            // gfx->setTextColor(C_DARK);
-            // gfx->setTextSize(1);
-            // gfx->printf("WP:%d", breadcrumbs.size());
+            // Flush Canvas to Display
+            canvas->flush();
         }
     }
     
