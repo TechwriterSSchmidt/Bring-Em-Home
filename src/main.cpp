@@ -553,7 +553,15 @@ void loop() {
                 }
             }
             
-            // Footer
+            // Footer: Coordinates
+            gfx->setCursor(10, 205);
+            gfx->setTextColor(CYAN);
+            gfx->setTextSize(1);
+            if (gps.location.isValid()) {
+                gfx->printf("Lat:%.5f Lon:%.5f", gps.location.lat(), gps.location.lng());
+            }
+
+            // Footer: Stats
             gfx->setCursor(10, 220);
             gfx->setTextColor(MAGENTA);
             gfx->setTextSize(1);

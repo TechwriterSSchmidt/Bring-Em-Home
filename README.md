@@ -103,48 +103,56 @@ The Waveshare ESP32-S3-LCD-1.3 display is built into the board:
   - **Breadcrumb Count**: Number of auto-saved waypoints (saved every 2.5 minutes)
 - Follow the arrow to return to your starting point.
 
+### Navigation Modes
+
+The device has two modes, toggled by a **Double Click** on the button:
+
+1.  **Recording Mode (Default)**
+    *   **Green Arrow**: Points to **North** (Compass).
+    *   **Display**: Shows distance to Home.
+    *   **Action**: Automatically saves breadcrumbs every 250m.
+
+2.  **Backtracking Mode (Return)**
+    *   **Red Arrow**: Points to the **Next Waypoint** or **Home**.
+    *   **Display**: Shows distance to the target.
+    *   **Action**: Guides you back along your path.
+
 ### Power Saving
 
-- The display automatically turns off after 5 minutes of inactivity.
-- **Short Press** the button to toggle the display ON or OFF.
+- The display automatically turns off after **5 minutes** of inactivity.
+- **Single Click** the button to toggle the display ON or OFF.
 - Turning the display ON resets the 5-minute timer.
 
-### Power Saving
-- The display automatically turns off after **5 minutes** of inactivity to save battery.
-- Press the external button briefly to turn the display **ON** or **OFF**.
-- The GPS remains active in the background to keep the lock.
-
-### Navigation
+### Navigation Indicators
 
 The display shows:
-- **GPS Status**: LOCKED or SEARCHING
-- **Current Coordinates**: Your current latitude/longitude
-- **Compass Heading**: Current direction you're facing (0-360°)
-- **Home Position**: Saved home coordinates
-- **Distance to Home**: How far you are from home (meters/kilometers)
-- **Bearing to Home**: Direction to travel to reach home (0-360°)
-- **Visual Arrow**: Points towards home position (relative to your current heading)
+- **GPS Status**: Satellite count
+- **Coordinates**: Real-time Lat/Lon at the bottom
+- **Compass Heading**: Current direction (0-360°)
+- **Distance**: To Home or Next Waypoint
+- **Visual Arrow**: 
+    - **Green (Recording)**: North Indicator
+    - **Red (Backtracking)**: Direction to Target
 
 ### Finding Your Way Home
 
-1. Look at the green arrow on the right side of the display
-2. Turn your body until the arrow points straight up (north on compass)
-3. Walk in that direction
-4. The distance and arrow will update as you move
-5. When distance reaches 0, you're home!
+1. **Double Click** the button to enter **Backtracking Mode** (Screen turns Blue briefly).
+2. Follow the **Red Arrow**.
+3. The device will guide you from waypoint to waypoint until you reach Home.
 
 ## Features
 
 - ✅ Real-time GPS coordinate display
-- ✅ Save home position with button press
-- ✅ Calculate distance to home (Haversine formula)
-- ✅ Calculate bearing to home
-- ✅ Digital compass with heading display
-- ✅ Visual arrow pointing towards home
-- ✅ Persistent storage of home position (survives power cycles)
+- ✅ Save home position with button press (Long Press)
+- ✅ Auto-save Home position after 5 minutes if not set
+- ✅ Breadcrumb trail (auto-save every 250m)
+- ✅ Backtracking mode to retrace steps
+- ✅ Calculate distance to home/waypoint
+- ✅ Digital compass (Green North Arrow)
+- ✅ Visual navigation arrow (Red Target Arrow)
+- ✅ Persistent storage of home position
 - ✅ Satellite count display
-- ✅ Color-coded display for easy reading
-- ✅ Low power consumption
+- ✅ Low power consumption (Auto-off)
 
 ## Display Color Coding
 
