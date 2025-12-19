@@ -132,8 +132,24 @@ void updateSOS() {
         lastLoRaTx = now;
         String msg = "SOS! Lat:" + String(gps.location.lat(), 6) + 
                      " Lon:" + String(gps.location.lng(), 6) + 
-                     " Bat:" + String(getBatteryPercent()) + "%" +
-                     " Type:" + USER_BLOOD_TYPE;
+                     " Bat:" + String(getBatteryPercent()) + "%";
+
+        #ifdef USER_BLOOD_TYPE
+        msg += " Type:" + String(USER_BLOOD_TYPE);
+        #endif
+
+        #ifdef USER_GENDER
+        msg += " Gen:" + String(USER_GENDER);
+        #endif
+
+        #ifdef USER_AGE
+        msg += " Age:" + String(USER_AGE);
+        #endif
+
+        #ifdef USER_MED_ALLERGIES
+        msg += " Alg:" + String(USER_MED_ALLERGIES);
+        #endif
+
         Serial.print("Sending LoRa SOS: "); Serial.println(msg);
         
         // Wake up and send
@@ -204,11 +220,14 @@ void drawArrow(int cx, int cy, int r, float angleDeg, bool showCardinals = false
 
     // Draw Cardinals if requested
     if (showCardinals) {
-        u8g2.setFont(u8g2_font_6x10_tr);
-        int r_text = r + 12; // Radius for text
+        u8g2.setFont(u8g2_font_5x7_tr); // Smaller font for all directions to fit better
+        int r_text = r + 14; // Slightly larger radius
         
         struct Cardinal { const char* label; float offset; };
-        Cardinal dirs[] = { {"N", 0}, {"E", 90}, {"S", 180}, {"W", 270} };
+        Cardinal dirs[] = { 
+            {"N", 0}, {"NE", 45}, {"E", 90}, {"SE", 135}, 
+            {"S", 180}, {"SW", 225}, {"W", 270}, {"NW", 315} 
+        };
         
         for (auto& d : dirs) {
             float a = (angleDeg + d.offset - 90) * PI / 180.0;
@@ -217,8 +236,8 @@ void drawArrow(int cx, int cy, int r, float angleDeg, bool showCardinals = false
             
             // Center text
             int w = u8g2.getStrWidth(d.label);
-            int h = 8; // approx height
-            u8g2.setCursor(tx - w/2, ty - h/2);
+            int h = 6; // approx height
+            u8g2.setCursor(tx - w/2, ty + h/2); // Adjust y for baseline
             u8g2.print(d.label);
         }
     }

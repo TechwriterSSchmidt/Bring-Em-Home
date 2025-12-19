@@ -34,8 +34,11 @@
 #define CPU_FREQ_LOW        80      // MHz (Standby)
 
 // --- Feature Settings ---
-// User Data
-#define USER_BLOOD_TYPE     "A+"    // Blood Type for SOS Message
+// User Data - Comment out to disable specific fields
+#define USER_BLOOD_TYPE     "A+"         // Optional: Blood Type
+#define USER_GENDER         "female"     // Optional: Gender
+#define USER_AGE            40           // Optional: Age
+#define USER_MED_ALLERGIES  "None"       // Optional: Medication Allergies
 
 // LoRa SOS
 #define LORA_TX_INTERVAL    60000   // SOS Beacon Interval (ms) -> 1 Minute

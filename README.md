@@ -50,6 +50,18 @@ The Heltec Wireless Tracker integrates most components, simplifying the wiring s
 - ✅ Persistent storage of home position
 - ✅ Low power consumption (Auto-off)
 
+## Configuration
+
+You can customize the device settings in `include/config.h`. This includes hardware pins, timeouts, and **User Data** for the SOS message.
+
+**User Data Options:**
+- `USER_BLOOD_TYPE`: Your blood type (e.g., "A+").
+- `USER_GENDER`: Your gender (e.g., "female"). *Optional: Comment out to disable.*
+- `USER_AGE`: Your age (e.g., 40). *Optional: Comment out to disable.*
+- `USER_MED_ALLERGIES`: Medication allergies (e.g., "Penicillin"). *Optional: Comment out to disable.*
+
+These details are included in the LoRa SOS beacon to assist rescue teams.
+
 ## User Interface
 
 The device features a high-contrast OLED display designed for readability in sunlight.
@@ -57,7 +69,7 @@ The device features a high-contrast OLED display designed for readability in sun
 ### 1. Navigation Screen
 Shows the direction to Home (or next waypoint), current compass heading, and distance.
 - **Header**: Vertical Battery Icon, Compass Status (C:Ok), Satellite Signal.
-- **Center**: Navigation Arrow (Points to destination) with Cardinal Directions (N, E, S, W).
+- **Center**: Navigation Arrow (Points to destination) with 8 Cardinal Directions (N, NE, E, SE, S, SW, W, NW).
 - **Footer**: "HOME" label (Left) and Distance in km (Right).
 
 ![Navigation Screen](mockup_nav.png)
@@ -69,6 +81,7 @@ Displayed when no GPS fix is available. Shows "Searching SATs" with an animated 
 
 ### 3. SOS Mode
 Activated by 5 rapid clicks. Displays a huge countdown to the next LoRa transmission.
+The SOS beacon includes your location, battery status, and configured user data (Blood Type, Age, etc.).
 
 ![SOS Screen](mockup_sos.png)
 

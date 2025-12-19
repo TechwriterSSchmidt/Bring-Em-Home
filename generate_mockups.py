@@ -128,18 +128,24 @@ def generate_nav():
     # Tip
     draw.polygon([(cx, cy-r), (cx-10, cy+10), (cx, cy+5), (cx+10, cy+10)], outline=FG_COLOR, fill=FG_COLOR)
     
-    # Cardinals (N, E, S, W)
-    font_card = get_font(10)
-    r_text = r + 12
+    # Cardinals (N, NE, E, SE, S, SW, W, NW)
+    font_card = get_font(8)
+    r_text = r + 14
     
-    # N (Top)
-    draw.text((cx-3, cy-r_text-5), "N", font=font_card, fill=FG_COLOR)
-    # E (Right)
-    draw.text((cx+r_text, cy-5), "E", font=font_card, fill=FG_COLOR)
-    # S (Bottom)
-    draw.text((cx-3, cy+r_text-5), "S", font=font_card, fill=FG_COLOR)
-    # W (Left)
-    draw.text((cx-r_text-5, cy-5), "W", font=font_card, fill=FG_COLOR)
+    dirs = [("N", 0), ("NE", 45), ("E", 90), ("SE", 135), 
+            ("S", 180), ("SW", 225), ("W", 270), ("NW", 315)]
+            
+    for label, angle in dirs:
+        # 0 deg = North (Up) -> -90 deg in standard trig
+        angle_rad = math.radians(angle - 90)
+        
+        tx = cx + r_text * math.cos(angle_rad)
+        ty = cy + r_text * math.sin(angle_rad)
+        
+        # Center text
+        w = draw.textlength(label, font=font_card)
+        h = 8 # approx height
+        draw.text((tx - w/2, ty - h/2), label, font=font_card, fill=FG_COLOR)
     
     # Footer (Bottom)
     y_footer = 125 - 12 # Baseline approx
