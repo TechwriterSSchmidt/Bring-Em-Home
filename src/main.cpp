@@ -234,11 +234,16 @@ void drawArrow(int cx, int cy, int r, float angleDeg, bool showCardinals = false
             int tx = cx + r_text * cos(a);
             int ty = cy + r_text * sin(a);
             
-            // Center text
-            int w = u8g2.getStrWidth(d.label);
-            int h = 6; // approx height
-            u8g2.setCursor(tx - w/2, ty + h/2); // Adjust y for baseline
-            u8g2.print(d.label);
+            if (strcmp(d.label, ".") == 0) {
+                // Draw 2x2 dot (4 pixels)
+                u8g2.drawBox(tx - 1, ty - 1, 2, 2);
+            } else {
+                // Center text
+                int w = u8g2.getStrWidth(d.label);
+                int h = 6; // approx height
+                u8g2.setCursor(tx - w/2, ty + h/2); // Adjust y for baseline
+                u8g2.print(d.label);
+            }
         }
     }
 }

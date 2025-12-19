@@ -142,10 +142,15 @@ def generate_nav():
         tx = cx + r_text * math.cos(angle_rad)
         ty = cy + r_text * math.sin(angle_rad)
         
-        # Center text
-        w = draw.textlength(label, font=font_card)
-        h = 8 # approx height
-        draw.text((tx - w/2, ty - h/2), label, font=font_card, fill=FG_COLOR)
+        if label == ".":
+            # Draw 2x2 dot (4 pixels)
+            # PIL rectangle is inclusive [x0, y0, x1, y1]
+            draw.rectangle((tx-1, ty-1, tx, ty), fill=FG_COLOR)
+        else:
+            # Center text
+            w = draw.textlength(label, font=font_card)
+            h = 8 # approx height
+            draw.text((tx - w/2, ty - h/2), label, font=font_card, fill=FG_COLOR)
     
     # Footer (Bottom)
     y_footer = 125 - 12 # Baseline approx
