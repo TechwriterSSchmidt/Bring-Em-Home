@@ -56,14 +56,14 @@ The device features a high-contrast OLED display designed for readability in sun
 
 ### 1. Navigation Screen
 Shows the direction to Home (or next waypoint), current compass heading, and distance.
-- **Header**: Battery %, Compass Status, Satellite Signal.
-- **Center**: Navigation Arrow (Points to destination).
+- **Header**: Vertical Battery Icon, Compass Status (C:Ok), Satellite Signal.
+- **Center**: Navigation Arrow (Points to destination) with Cardinal Directions (N, E, S, W).
 - **Footer**: "HOME" label (Left) and Distance in km (Right).
 
 ![Navigation Screen](mockup_nav.png)
 
 ### 2. Searching for GPS
-Displayed when no GPS fix is available. Shows an animated status.
+Displayed when no GPS fix is available. Shows an animated text "Searching SATs . . .".
 
 ![Searching Screen](mockup_searching.png)
 
