@@ -1178,7 +1178,7 @@ void loop() {
                 u8g2.print(cntStr);
                 
                 u8g2.setFont(u8g2_font_6x10_tr);
-                const char* sub = "Press to Cancel";
+                const char* sub = "Press button to Cancel";
                 w = u8g2.getStrWidth(sub);
                 u8g2.setCursor((SCREEN_WIDTH - w) / 2, 110);
                 u8g2.print(sub);
