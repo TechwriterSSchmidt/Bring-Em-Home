@@ -86,7 +86,7 @@ Shows the direction to Home (or next waypoint), current compass heading, and dis
 - **Center**: Navigation Arrow (Points to destination) with 8 Cardinal Directions (N, NE, E, SE, S, SW, W, NW). Intermediate directions are shown as dots.
 - **Footer**: "HOME" label (Left) and Distance in km (Right).
 
-![Navigation Screen](mockup_nav.png)
+![Navigation Screen](Screens/mockup_nav.png)
 
 ### 2. Breadcrumb Mode (Backtracking)
 Activated by a **Double Click**. Guides you back to your starting point by following your recorded path in reverse.
@@ -94,12 +94,12 @@ Activated by a **Double Click**. Guides you back to your starting point by follo
 - **Center**: Direction Arrow pointing to the **Next Waypoint**. (No cardinal directions shown).
 - **Footer**: "WAYPOINT" label (Left) and Distance to it (Right).
 
-![Breadcrumb Screen](mockup_breadcrumb.png)
+![Breadcrumb Screen](Screens/mockup_breadcrumb.png)
 
 ### 3. Searching for GPS
 Displayed when no GPS fix is available. Shows "Searching SATs" with an animated progress bar.
 
-![Searching Screen](mockup_searching.png)
+![Searching Screen](Screens/mockup_searching.png)
 
 ### 4. SOS Mode
 Activated by 5 rapid clicks. 
@@ -107,15 +107,15 @@ Activated by 5 rapid clicks.
 2.  **Active**: Displays a huge countdown to the next LoRa transmission.
 3.  **Runtime**: Shows estimated battery runtime based on current consumption.
 
-![SOS Countdown](mockup_sos_countdown.png)
-![SOS Screen](mockup_sos.png)
+![SOS Countdown](Screens/mockup_sos_countdown.png)
+![SOS Screen](Screens/mockup_sos.png)
 
 ### 5. Charging Mode
 Displayed when connected to a charger (Voltage > 4.4V). 
 - Shows "Loading battery..." and an animated battery icon.
 - Displays **Estimated Time to Full** (e.g., "Est: 1.5h").
 
-![Charging Screen](mockup_charging.png)
+![Charging Screen](Screens/mockup_charging.png)
 
 ### 6. OTA Update Mode
 Activated by holding the button for **5 seconds** while powering on.
@@ -123,7 +123,7 @@ Activated by holding the button for **5 seconds** while powering on.
 - Connect and visit `192.168.4.1` to upload new firmware (`firmware.bin`) or filesystem (`littlefs.bin`).
 - **Indicator**: The Status LED pulses **White**.
 
-![OTA Screen](mockup_ota.png)
+![OTA Screen](Screens/mockup_ota.png)
 
 ## 🔋 Power & Battery Life
 
@@ -184,8 +184,6 @@ The device has two modes, toggled by a **Double Click** on the button:
 - The display automatically turns off after **5 minutes** of inactivity.
 - **Single Click** the button to toggle the display ON or OFF.
 - Turning the display ON resets the 5-minute timer.
-
-*> Note: Checkout the QUICK_REFERENCE.md for more information.*
 
 
 ## Technical Details
