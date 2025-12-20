@@ -24,7 +24,7 @@
 | **Recording** | Tracking your hike. Shows Speed & Dist. |
 | **Backtracking** | Guiding you home. Shows Arrow & Dist. |
 
-## 🔘 Button Functions (GPIO 0)
+## 🔘 Button Functions (GPIO 6)
 
 | Action | Gesture | Function |
 |--------|---------|----------|

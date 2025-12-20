@@ -15,13 +15,13 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
 - **Bosch BNO055 9-Axis Absolute Orientation Sensor**
   - For precise compass heading.
 - **Peripherals (Optional)**
-  - Vibration Motor
-  - High Power LED (Flashlight)
-  - External Button
+  - Vibration Motor with driver circuit
+  - Flashlight and SOS-signal LED with driver circuit for high power LEDs
+  - External Button, waterproof
 
 ## Hardware Connections
 
-The Heltec Wireless Tracker integrates most components, simplifying the wiring significantly.
+I've chosen a Heltec Wireless Tracker v1.1 integrates most components, simplifying the wiring significantly.
 
 ### I2C Bus (Shared: BNO055 Compass & SH1107 OLED)
 - **SDA**: GPIO 41
@@ -30,18 +30,18 @@ The Heltec Wireless Tracker integrates most components, simplifying the wiring s
 - **GND**: GND
 
 ### Peripherals
-- **Button**: GPIO 0 (Built-in "PRG" button or external)
+- **Button**: GPIO 6 (External)
 - **Vibration Motor**: GPIO 7
 - **Flashlight LED**: GPIO 5
 - **Status LED (NeoPixel)**: GPIO 18 (Internal WS2812)
 
 ## Features
 
-- ✅ **Intuitive UI**: Graphical interface with GPS signal bars and battery status.
-- ✅ **Smart Auto-Home**: Automatically sets home on power-up when GPS fix is found.
+- ✅ **Intuitive UI**: Intuitive graphical interface with GPS signal bars and battery status.
+- ✅ **Smart Auto-Home-Position**: Automatically sets home position on power-up when GPS fix is found.
 - ✅ **Crash Recovery**: Restores home position and breadcrumbs if device restarts due to software error.
 - ✅ Save home position manually with button press (Long Press > 10s)
-- ✅ **Smart Breadcrumbs**: Records path points every 250m OR when changing direction (>45°) to capture turns accurately.
+- ✅ **Smart Breadcrumbs**: Records path points every 250m OR on significant direction changes (to capture turns accurately).
 - ✅ **Smart GPS Filter**: Ignores GPS drift when standing still or moving too fast (>12km/h).
 - ✅ **Safety First**: SOS Beacon with LoRa transmission, Morse code flasher, and battery runtime estimation.
 - ✅ **Charging Detection**: Automatically detects wall charger and shows charging progress.

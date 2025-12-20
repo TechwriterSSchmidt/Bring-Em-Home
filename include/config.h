@@ -24,7 +24,7 @@
 // External Peripherals
 #define PIN_I2C_SDA         41      // OLED & BNO055 SDA
 #define PIN_I2C_SCL         42      // OLED & BNO055 SCL
-#define PIN_BUTTON          0       // Built-in PRG Button
+#define PIN_BUTTON          6       // External Button (Avoids GPIO 0 Boot issues)
 #define PIN_VIB_MOTOR       7       // Vibration Motor
 #define PIN_FLASHLIGHT      5       // High Power LED
 

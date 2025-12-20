@@ -25,7 +25,7 @@ Connection Diagram:
          │              │           │  - LoRa (SPI: 8,9,10,11)    │  │
          │              │           │                             │  │
          │              │           │ Peripherals:                │  │
-         │              │           │  - Button: GPIO 0 (PRG)     │  │
+         │              │           │  - Button: GPIO 6           │  │
          │              │           │  - Vibration: GPIO 7        │  │
          │              │           │  - Flashlight: GPIO 5       │  │
          │              │           │  - VEXT Power: GPIO 3       │  │
@@ -46,7 +46,7 @@ GPIO Pin Summary:
 =================
 Heltec Pin   | Function              | Connection
 -------------|-----------------------|------------------------
-GPIO 0       | User Button           | Built-in PRG Button (or external)
+GPIO 6       | User Button           | External Button (Active Low)
 GPIO 3       | VEXT Control          | Internal Power Switch (Sensors)
 GPIO 5       | Flashlight LED        | LED Driver / Transistor
 GPIO 7       | Vibration Motor       | Transistor Base / Motor Driver

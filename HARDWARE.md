@@ -47,7 +47,7 @@ GND           ------> BNO055 GND & OLED GND
 ```
 Component      Heltec GPIO
 =========      ===========
-Button         GPIO 0 (PRG Button or External)
+Button         GPIO 6 (External)
 Vibration      GPIO 7
 Flashlight     GPIO 5
 Status LED     GPIO 18 (Internal NeoPixel)
