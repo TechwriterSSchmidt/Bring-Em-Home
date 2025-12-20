@@ -226,9 +226,30 @@ def generate_sos_countdown():
     img.save("mockup_sos_countdown.png")
     print("Generated mockup_sos_countdown.png")
 
+def generate_ota():
+    img = create_image()
+    draw = ImageDraw.Draw(img)
+    
+    font_title = get_font(12, bold=True)
+    font_text = get_font(11)
+    
+    # Title
+    draw.text((0, 10), "OTA UPDATE MODE", font=font_title, fill=FG_COLOR)
+    
+    # Info
+    draw.text((0, 25), "Connect WiFi:", font=font_text, fill=FG_COLOR)
+    draw.text((0, 40), "Bring_Em_Home", font=font_text, fill=FG_COLOR)
+    
+    draw.text((0, 60), "Go to:", font=font_text, fill=FG_COLOR)
+    draw.text((0, 75), "192.168.4.1", font=font_text, fill=FG_COLOR)
+    
+    img.save("mockup_ota.png")
+    print("Generated mockup_ota.png")
+
 if __name__ == "__main__":
     generate_sos()
     generate_searching()
     generate_nav()
     generate_charging()
     generate_sos_countdown()
+    generate_ota()

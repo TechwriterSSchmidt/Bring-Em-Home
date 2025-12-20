@@ -33,6 +33,7 @@
 | **Flashlight** | 3 Clicks | Toggle LED Light |
 | **SOS Mode** | 5 Clicks | Start SOS Countdown |
 | **Reset Home** | Hold >10s | Set NEW Home (Explore Mode) |
+| **OTA Update** | Hold 5s (Boot) | WiFi Update (White LED Pulse) |
 
 ## 📊 Technical Info
 
@@ -131,11 +132,10 @@ W (270°)─┼─ E (90°)
 
 ## 📐 Distance Units
 
-- Less than 1 km: Shows in **meters** (m)
-- Over 1 km: Shows in **kilometers** (km)
+- Shows in **kilometers** (km)
 
 Example:
-- `Distance: 850 m` = 850 meters
+- `Distance: 0.85 km` = 850 meters
 - `Distance: 2.45 km` = 2,450 meters
 
 ## 💡 Pro Tips
@@ -161,7 +161,7 @@ Example:
 
 Before hiking, know local emergency numbers:
 - USA/Canada: 911
-- Europe: 112
+- Europe (international emergency number that also works in Switzerland): 112
 - UK: 999
 - Australia: 000
 

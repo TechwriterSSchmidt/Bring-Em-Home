@@ -40,6 +40,7 @@ The device is operated by a single button (GPIO 14). The software includes debou
 | **Flashlight** | 3 Clicks | Toggles the High Power LED flashlight. |
 | **SOS Signal** | 5 Clicks | Starts 5s Countdown, then activates SOS Morse code & LoRa Beacon. |
 | **Reset Home** | Hold >10s | **(Explorer Mode only)** Overwrites the current Home position with your current location. Useful if you started tracking too early (e.g. at the bus stop). |
+| **OTA Update** | Hold 5s (Boot) | **(While Powering On)** Enters WiFi Firmware Update Mode (LED pulses White). |
 
 ## Understanding the Display
 
@@ -73,6 +74,7 @@ The display uses a graphical interface to show all important information at a gl
 **Charging Screen:**
 - Appears automatically when a charger is connected (>4.4V).
 - Shows "Loading battery..." and a progress bar.
+- Displays estimated time until full charge (e.g., "Est: 1.5h").
 - LED pulses green.
 
 **SOS Screen:**
@@ -81,7 +83,7 @@ The display uses a graphical interface to show all important information at a gl
 - **Runtime**: Displays estimated battery runtime (e.g., "Est: 4.5h").
 
 **Bottom Area (Info):**
-- **Distance**: Distance to Home (in meters or km).
+- **Distance**: Total path distance to Home (sum of breadcrumbs).
 - **Label**: "HOME" (Destination) or "WAITING GPS".
 
 ### Status Indicators
