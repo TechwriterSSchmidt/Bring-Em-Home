@@ -35,6 +35,9 @@ bool isVibrating = false;
 // Feature State
 bool isFlashlightOn = false;
 bool isSOSActive = false;
+bool isSOSCountdown = false;
+unsigned long sosCountdownStartTime = 0;
+bool isCharging = false;
 unsigned long lastSOSUpdate = 0;
 int sosStep = 0;
 
@@ -142,8 +145,13 @@ void updateSOS() {
         msg += " Gen:" + String(USER_GENDER);
         #endif
 
-        #ifdef USER_AGE
-        msg += " Age:" + String(USER_AGE);
+        #ifdef USER_BIRTH_YEAR
+        if (gps.date.isValid() && gps.date.year() > 2020) {
+            int age = gps.date.year() - USER_BIRTH_YEAR;
+            msg += " Age:" + String(age);
+        } else {
+            msg += " Born:" + String(USER_BIRTH_YEAR);
+        }
         #endif
 
         #ifdef USER_MED_ALLERGIES
@@ -547,10 +555,40 @@ void loop() {
     // Reset Watchdog Timer
     esp_task_wdt_reset();
 
+    // --- Charging Detection ---
+    // User Request: Detect charging via voltage jump/level.
+    // "Sobald man ein Ladegerät anschliesst, steigt die Spannung sprunghaft an und bleibt auf einen hohen Niveau (so etwa 5v)"
+    // We check if voltage is significantly above normal battery level (4.2V).
+    
+    static unsigned long lastChargeCheck = 0;
+    if (millis() - lastChargeCheck > 1000) {
+        uint32_t voltage_mv = analogReadMilliVolts(1) * 2;
+        
+        // Threshold: 4400mV (4.4V)
+        // This is safely above a fully charged LiPo (4.2V).
+        // If the user's observation of ~5V is correct, this will trigger reliably.
+        if (voltage_mv > 4400) { 
+             isCharging = true;
+        } else {
+             isCharging = false;
+        }
+        lastChargeCheck = millis();
+    }
+
     // Update Status LED (50Hz)
     static unsigned long lastLedUpdate = 0;
     if (millis() - lastLedUpdate > 20) {
-        updateStatusLED();
+        if (isCharging) {
+            // Green Pulsing
+            static int chargeBright = 0;
+            static int chargeDir = 5;
+            pixels.setPixelColor(0, pixels.Color(0, chargeBright, 0));
+            pixels.show();
+            chargeBright += chargeDir;
+            if (chargeBright >= 150 || chargeBright <= 0) chargeDir = -chargeDir;
+        } else {
+            updateStatusLED();
+        }
         lastLedUpdate = millis();
     }
 
@@ -647,7 +685,19 @@ void loop() {
 
     // Process Clicks (Delayed to detect double click)
     if (clickCount > 0 && (millis() - lastClickTime > CLICK_DELAY)) {
-        if (clickCount == 1) {
+        
+        // SOS Countdown Cancellation (Any click cancels)
+        if (isSOSCountdown) {
+            isSOSCountdown = false;
+            u8g2.clearBuffer();
+            u8g2.setFont(u8g2_font_ncenB10_tr);
+            u8g2.drawStr(10, 60, "SOS CANCELLED");
+            u8g2.sendBuffer();
+            delay(2000);
+            clickCount = 0;
+            lastInteractionTime = millis();
+            // Continue loop to avoid triggering other actions
+        } else if (clickCount == 1) {
             // Single Click: Toggle Display
             if (isDisplayOn) {
                 u8g2.setPowerSave(1); // Display OFF
@@ -659,7 +709,7 @@ void loop() {
                 setCpuFrequencyMhz(240); // High performance mode
                 lastInteractionTime = millis();
             }
-        } else if (clickCount >= 2) {
+        } else if (clickCount >= 2 && clickCount < 5) {
             // Double Click: Toggle Mode
             if (currentMode == MODE_EXPLORE) {
                 currentMode = MODE_BRING_HOME;
@@ -710,7 +760,19 @@ void loop() {
             toggleFlashlight();
             triggerVibration();
         } else if (clickCount >= 5) {
-            // 5x Click: SOS (LoRa + LED)
+            // 5x Click: Start SOS Countdown
+            isSOSCountdown = true;
+            sosCountdownStartTime = millis();
+            if (!isDisplayOn) { u8g2.setPowerSave(0); isDisplayOn = true; }
+            triggerVibration(); // Feedback that sequence started
+        }
+        clickCount = 0;
+    }
+
+    // SOS Countdown Timer Check
+    if (isSOSCountdown) {
+        if (millis() - sosCountdownStartTime > 5000) {
+            isSOSCountdown = false;
             toggleSOS();
             triggerVibration();
             delay(100);
@@ -718,7 +780,6 @@ void loop() {
             delay(100);
             triggerVibration();
         }
-        clickCount = 0;
     }
 
     // 4. Auto-Home Logic (Immediate on Fix if not set)
@@ -821,6 +882,62 @@ void loop() {
             
             u8g2.clearBuffer();
             int w = 0;
+
+            // --- Charging Mode ---
+            if (isCharging) {
+                u8g2.setFont(u8g2_font_ncenB10_tr);
+                const char* title = "Loading battery...";
+                w = u8g2.getStrWidth(title);
+                u8g2.setCursor((SCREEN_WIDTH - w) / 2, 40);
+                u8g2.print(title);
+                
+                // Battery Icon Large
+                u8g2.drawFrame(44, 60, 40, 20); // Body
+                u8g2.drawBox(84, 66, 4, 8);     // Terminal
+                
+                // Animated Fill
+                static int chargeAnim = 0;
+                static unsigned long lastChargeAnim = 0;
+                if (millis() - lastChargeAnim > 500) {
+                    chargeAnim = (chargeAnim + 1) % 5;
+                    lastChargeAnim = millis();
+                }
+                // 4 bars inside
+                for(int i=0; i<chargeAnim; i++) {
+                    u8g2.drawBox(46 + (i*9), 62, 7, 16);
+                }
+
+                u8g2.sendBuffer();
+                return;
+            }
+
+            // --- SOS Countdown ---
+            if (isSOSCountdown) {
+                u8g2.setFont(u8g2_font_ncenB12_tr);
+                const char* title = "SOS MODE IN";
+                w = u8g2.getStrWidth(title);
+                u8g2.setCursor((SCREEN_WIDTH - w) / 2, 20);
+                u8g2.print(title);
+
+                // Countdown Number
+                int remaining = 5 - (millis() - sosCountdownStartTime) / 1000;
+                if (remaining < 0) remaining = 0;
+                
+                u8g2.setFont(u8g2_font_logisoso42_tn);
+                String cntStr = String(remaining);
+                w = u8g2.getStrWidth(cntStr.c_str());
+                u8g2.setCursor((SCREEN_WIDTH - w) / 2, 75);
+                u8g2.print(cntStr);
+                
+                u8g2.setFont(u8g2_font_6x10_tr);
+                const char* sub = "Press to Cancel";
+                w = u8g2.getStrWidth(sub);
+                u8g2.setCursor((SCREEN_WIDTH - w) / 2, 110);
+                u8g2.print(sub);
+
+                u8g2.sendBuffer();
+                return;
+            }
 
             // --- SOS MODE ---
             if (isSOSActive) {

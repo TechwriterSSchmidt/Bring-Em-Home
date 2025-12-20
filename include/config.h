@@ -37,7 +37,7 @@
 // User Data - Comment out to disable specific fields
 #define USER_BLOOD_TYPE     "A+"         // Optional: Blood Type
 #define USER_GENDER         "female"     // Optional: Gender
-#define USER_AGE            40           // Optional: Age
+#define USER_BIRTH_YEAR     1984         // Optional: Birth Year (Age calculated via GPS)
 #define USER_MED_ALLERGIES  "None"       // Optional: Medication Allergies
 
 // LoRa SOS

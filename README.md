@@ -57,7 +57,7 @@ You can customize the device settings in `include/config.h`. This includes hardw
 **User Data Options:**
 - `USER_BLOOD_TYPE`: Your blood type (e.g., "A+").
 - `USER_GENDER`: Your gender (e.g., "female"). *Optional: Comment out to disable.*
-- `USER_AGE`: Your age (e.g., 40). *Optional: Comment out to disable.*
+- `USER_BIRTH_YEAR`: Your birth year (e.g., 1984). The device calculates age automatically from GPS time. *Optional: Comment out to disable.*
 - `USER_MED_ALLERGIES`: Medication allergies (e.g., "Penicillin"). *Optional: Comment out to disable.*
 
 These details are included in the LoRa SOS beacon to assist rescue teams.
@@ -69,7 +69,7 @@ The device features a high-contrast OLED display designed for readability in sun
 ### 1. Navigation Screen
 Shows the direction to Home (or next waypoint), current compass heading, and distance.
 - **Header**: Vertical Battery Icon, Compass Status (C:Ok), Satellite Signal.
-- **Center**: Navigation Arrow (Points to destination) with 8 Cardinal Directions (N, NE, E, SE, S, SW, W, NW).
+- **Center**: Navigation Arrow (Points to destination) with 8 Cardinal Directions (N, NE, E, SE, S, SW, W, NW). Intermediate directions are shown as dots.
 - **Footer**: "HOME" label (Left) and Distance in km (Right).
 
 ![Navigation Screen](mockup_nav.png)
@@ -80,10 +80,17 @@ Displayed when no GPS fix is available. Shows "Searching SATs" with an animated 
 ![Searching Screen](mockup_searching.png)
 
 ### 3. SOS Mode
-Activated by 5 rapid clicks. Displays a huge countdown to the next LoRa transmission.
-The SOS beacon includes your location, battery status, and configured user data (Blood Type, Age, etc.).
+Activated by 5 rapid clicks. 
+1.  **Countdown**: A 5-second countdown allows you to cancel accidental triggers.
+2.  **Active**: Displays a huge countdown to the next LoRa transmission.
 
+![SOS Countdown](mockup_sos_countdown.png)
 ![SOS Screen](mockup_sos.png)
+
+### 4. Charging Mode
+Displayed when connected to a charger (Voltage > 4.4V). Shows "Loading battery..." and an animated battery icon.
+
+![Charging Screen](mockup_charging.png)
 
 ## 🔋 Power & Battery Life
 

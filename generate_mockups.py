@@ -168,7 +168,59 @@ def generate_nav():
     img.save("mockup_nav.png")
     print("Generated mockup_nav.png")
 
+def generate_charging():
+    img = create_image()
+    draw = ImageDraw.Draw(img)
+    
+    # Title
+    font_title = get_font(14, bold=True)
+    text = "Loading battery..."
+    w = draw.textlength(text, font=font_title)
+    draw.text(((WIDTH - w) / 2, 40), text, font=font_title, fill=FG_COLOR)
+    
+    # Battery Icon Large
+    # u8g2.drawFrame(44, 60, 40, 20); // Body
+    # u8g2.drawBox(84, 66, 4, 8);     // Terminal
+    draw.rectangle((44, 60, 84, 80), outline=FG_COLOR)
+    draw.rectangle((84, 66, 88, 74), fill=FG_COLOR)
+    
+    # Animated Fill (3 bars)
+    # u8g2.drawBox(46 + (i*9), 62, 7, 16);
+    for i in range(3):
+        x = 46 + (i * 9)
+        draw.rectangle((x, 62, x + 7, 78), fill=FG_COLOR)
+        
+    img.save("mockup_charging.png")
+    print("Generated mockup_charging.png")
+
+def generate_sos_countdown():
+    img = create_image()
+    draw = ImageDraw.Draw(img)
+    
+    # Title
+    font_title = get_font(16, bold=True)
+    text = "SOS MODE IN"
+    w = draw.textlength(text, font=font_title)
+    draw.text(((WIDTH - w) / 2, 20), text, font=font_title, fill=FG_COLOR)
+    
+    # Countdown
+    font_huge = get_font(42, bold=True)
+    text = "3"
+    w = draw.textlength(text, font=font_huge)
+    draw.text(((WIDTH - w) / 2, 75), text, font=font_huge, fill=FG_COLOR)
+    
+    # Footer
+    font_sub = get_font(10)
+    text = "Press to Cancel"
+    w = draw.textlength(text, font=font_sub)
+    draw.text(((WIDTH - w) / 2, 110), text, font=font_sub, fill=FG_COLOR)
+    
+    img.save("mockup_sos_countdown.png")
+    print("Generated mockup_sos_countdown.png")
+
 if __name__ == "__main__":
     generate_sos()
     generate_searching()
     generate_nav()
+    generate_charging()
+    generate_sos_countdown()
