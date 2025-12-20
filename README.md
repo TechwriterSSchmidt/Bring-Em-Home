@@ -43,20 +43,20 @@ I've chosen a Heltec Wireless Tracker v1.1 integrates most components, simplifyi
 
 ## Features
 
-- ✅ **Intuitive UI**: Intuitive graphical interface with GPS signal bars and battery status.
-- ✅ **Smart Auto-Home-Position**: Automatically sets home position on power-up when GPS fix is found.
-- ✅ **Crash Recovery**: Restores home position and breadcrumbs if device restarts due to software error.
-- ✅ Save home position manually with button press (Long Press > 10s)
-- ✅ **Smart Breadcrumbs**: Records path points distance-based AND on significant direction changes (to capture turns).
-- ✅ **Smart GPS Filter**: Ignores GPS drift when standing still or moving too fast (>12km/h).
-- ✅ **Safety First**: SOS Beacon with LoRa transmission, Morse code flasher, and battery runtime estimation.
-- ✅ **Charging Detection**: Automatically detects wall charger and shows charging progress.
-- ✅ Backtracking mode to retrace steps
-- ✅ Calculate distance to home/waypoint
-- ✅ Digital compass (North Arrow)
-- ✅ Visual navigation arrow (Target Arrow)
-- ✅ Persistent storage of home position
-- ✅ Low power consumption (Auto-off)
+- **Intuitive UI**: Intuitive graphical interface with GPS signal bars and battery status.
+- **Smart Auto-Home-Position**: Automatically sets home position on power-up when GPS fix is found.
+- **Crash Recovery**: Restores home position and breadcrumbs if device restarts due to software error.
+- Save home position manually with button press (Long Press > 10s)
+- **Smart Breadcrumbs**: Records path points distance-based AND on significant direction changes (to capture turns).
+- **Smart GPS Filter**: Ignores GPS drift when standing still or moving too fast (>12km/h).
+- **Safety First**: SOS Beacon with LoRa transmission, Morse code flasher, and battery runtime estimation.
+- **Charging Detection**: Automatically detects wall charger and shows charging progress.
+- Backtracking mode to retrace steps
+- Calculate distance to home/waypoint
+- Digital compass (North Arrow)
+- Visual navigation arrow (Target Arrow)
+- Persistent storage of home position
+- Low power consumption (Auto-off)
 
 ## Configuration
 
@@ -152,7 +152,7 @@ When the battery drops below 10%:
 ## Software Setup
 
 ### Prerequisites
-- [PlatformIO](https://platformio.org/) (recommended) or Arduino IDE
+- [PlatformIO](https://platformio.org/) (recommended)
 - USB drivers for ESP32-S3
 
 ## Usage
@@ -217,4 +217,4 @@ This project is open source. Feel free to use and modify as needed.
 
 ## Credits
 
-Created to help Emilie find her way home on hikes! 🏔️➡️🏠
+Created to help Emilie find her way home on hikes!
