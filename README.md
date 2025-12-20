@@ -65,7 +65,7 @@ You can customize the device settings in `include/config.h`. This includes hardw
 **User Data Options:**
 - `USER_BLOOD_TYPE`: Your blood type (e.g., "A+").
 - `USER_GENDER`: Your gender (e.g., "female"). *Optional: Comment out to disable.*
-- `USER_BIRTH_YEAR`: Your birth year (e.g., 1984). The device calculates age automatically from GPS time. *Optional: Comment out to disable.*
+- `USER_BIRTH_YEAR`: Your birth year (e.g., 1992). The device calculates age automatically from GPS time. *Optional: Comment out to disable.*
 - `USER_MED_ALLERGIES`: Medication allergies (e.g., "Penicillin"). *Optional: Comment out to disable.*
 
 **Navigation Settings:**
