@@ -1,4 +1,4 @@
-# Quick Reference Card - Bring Em Home
+# Quick Reference Guide - Bring Em Home
 
 ## 🚀 Quick Start (First Use)
 
