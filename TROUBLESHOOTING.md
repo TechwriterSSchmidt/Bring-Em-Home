@@ -43,9 +43,10 @@ This guide helps you diagnose and fix common issues with the Bring Em Home GPS n
 **Symptom**: Cannot upload to ESP32-S3
 
 **Solutions**:
-1. Hold BOOT button while clicking upload
-2. Check USB cable (data cable, not just power)
-3. Install/update USB drivers:
+1. **OTA Update**: If USB fails, try the OTA mode. Hold the button for 5s while powering on, connect to WiFi `Bring_Em_Home`, and upload `firmware.bin` via `192.168.4.1`.
+2. Hold BOOT button (GPIO 0) while clicking upload (Note: This is the internal button on the board, not the external one).
+3. Check USB cable (data cable, not just power)
+4. Install/update USB drivers:
    - Windows: Install CH340 or CP2102 drivers
    - Linux: Add user to dialout group: `sudo usermod -a -G dialout $USER`
    - Mac: Install USB serial drivers

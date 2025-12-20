@@ -15,6 +15,9 @@
 #include <RadioLib.h>
 #include <Adafruit_NeoPixel.h>
 #include <LittleFS.h>
+#include <WebServer.h>
+#include <DNSServer.h>
+#include <Update.h>
 #include "config.h"
 
 // Display dimensions
@@ -389,6 +392,159 @@ void updateStatusLED() {
     }
 }
 
+void enterOTAMode() {
+    Serial.println("Entering OTA Mode...");
+    
+    // Init Display for OTA Message
+    u8g2.begin();
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_ncenB08_tr);
+    u8g2.drawStr(0, 10, "OTA UPDATE MODE");
+    u8g2.drawStr(0, 25, "Connect WiFi:");
+    u8g2.drawStr(0, 40, "Bring_Em_Home");
+    u8g2.drawStr(0, 60, "Go to:");
+    u8g2.drawStr(0, 75, "192.168.4.1");
+    u8g2.sendBuffer();
+
+    // Start WiFi AP
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP("Bring_Em_Home"); // No password
+    
+    // Start DNS Server (Captive Portal)
+    DNSServer dnsServer;
+    dnsServer.start(53, "*", WiFi.softAPIP());
+
+    // Start WebServer
+    WebServer server(80);
+    
+    // Root Page
+    server.on("/", HTTP_GET, [&server]() {
+        server.sendHeader("Connection", "close");
+        server.send(200, "text/html", 
+            "<!DOCTYPE html><html><head><title>Bring Em Home OTA</title>"
+            "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+            "<style>body{font-family:sans-serif;text-align:center;padding:20px;}"
+            "input{margin:10px;padding:10px;}</style></head>"
+            "<body><h1>Firmware Update</h1>"
+            "<p>Select firmware.bin or littlefs.bin</p>"
+            "<form method='POST' action='/update' enctype='multipart/form-data'>"
+            "<input type='file' name='update'><br>"
+            "<input type='submit' value='Update Device'>"
+            "</form></body></html>");
+    });
+
+    // Update Handler
+    server.on("/update", HTTP_POST, [&server]() {
+        server.sendHeader("Connection", "close");
+        server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+        delay(1000);
+        ESP.restart();
+    }, [&server]() {
+        HTTPUpload& upload = server.upload();
+        if (upload.status == UPLOAD_FILE_START) {
+            Serial.printf("Update: %s\n", upload.filename.c_str());
+            int cmd = U_FLASH;
+            if (upload.filename.indexOf("littlefs") > -1 || upload.filename.indexOf("spiffs") > -1) {
+                cmd = U_SPIFFS;
+                Serial.println("Target: Filesystem");
+            } else {
+                Serial.println("Target: Firmware");
+            }
+            
+            if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
+                Update.printError(Serial);
+            }
+        } else if (upload.status == UPLOAD_FILE_WRITE) {
+            if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+                Update.printError(Serial);
+            }
+        } else if (upload.status == UPLOAD_FILE_END) {
+            if (Update.end(true)) {
+                Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+            } else {
+                Update.printError(Serial);
+            }
+        }
+    });
+
+    server.begin();
+    Serial.println("OTA Server started.");
+
+    unsigned long otaStart = millis();
+    unsigned long lastLedUpdate = 0;
+    int ledBright = 0;
+    int ledDir = 5;
+
+    while (millis() - otaStart < 300000) { // 5 Minutes
+        dnsServer.processNextRequest();
+        server.handleClient();
+        
+        // White Pulsing LED
+        if (millis() - lastLedUpdate > 20) {
+            pixels.setPixelColor(0, pixels.Color(ledBright, ledBright, ledBright)); // White
+            pixels.show();
+            ledBright += ledDir;
+            if (ledBright >= 150 || ledBright <= 0) ledDir = -ledDir;
+            lastLedUpdate = millis();
+        }
+        
+        delay(10);
+    }
+
+    Serial.println("OTA Timeout. Restarting...");
+    ESP.restart();
+}
+
+// Helper: Calculate Total Path Distance to Home
+double calculateTotalDistanceToHome() {
+    if (!gps.location.isValid() || !hasHome) return 0.0;
+    
+    double totalDist = 0.0;
+    
+    if (currentMode == MODE_BRING_HOME) {
+        if (targetBreadcrumbIndex >= 0 && !breadcrumbs.empty()) {
+            // 1. Current Pos -> Target Breadcrumb
+            totalDist += gps.distanceBetween(gps.location.lat(), gps.location.lng(), 
+                                           breadcrumbs[targetBreadcrumbIndex].lat, 
+                                           breadcrumbs[targetBreadcrumbIndex].lon);
+            
+            // 2. Target Breadcrumb -> ... -> First Breadcrumb
+            for (int i = targetBreadcrumbIndex; i > 0; i--) {
+                totalDist += gps.distanceBetween(breadcrumbs[i].lat, breadcrumbs[i].lon,
+                                               breadcrumbs[i-1].lat, breadcrumbs[i-1].lon);
+            }
+            
+            // 3. First Breadcrumb -> Home
+            totalDist += gps.distanceBetween(breadcrumbs[0].lat, breadcrumbs[0].lon, homeLat, homeLon);
+        } else {
+            // Direct to Home
+            totalDist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
+        }
+    } else {
+        // MODE_EXPLORE
+        // Calculate full trail distance back
+        if (!breadcrumbs.empty()) {
+            // 1. Current -> Last Breadcrumb
+            totalDist += gps.distanceBetween(gps.location.lat(), gps.location.lng(), 
+                                           breadcrumbs.back().lat, breadcrumbs.back().lon);
+            
+            // 2. Sum of all segments
+            for (int i = breadcrumbs.size() - 1; i > 0; i--) {
+                totalDist += gps.distanceBetween(breadcrumbs[i].lat, breadcrumbs[i].lon,
+                                               breadcrumbs[i-1].lat, breadcrumbs[i-1].lon);
+            }
+            
+            // 3. First -> Home
+            totalDist += gps.distanceBetween(breadcrumbs[0].lat, breadcrumbs[0].lon, homeLat, homeLon);
+        } else {
+            // Direct
+            totalDist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
+        }
+    }
+    
+    return totalDist;
+}
+
 void setup() {
     // Power on VExt for sensors (GPS, LoRa, OLED)
     pinMode(PIN_VEXT, OUTPUT);
@@ -399,6 +555,26 @@ void setup() {
     analogSetAttenuation(ADC_11db);
 
     Serial.begin(SERIAL_BAUD);
+
+    // Check for OTA Mode (Button held for 5s at boot)
+    pinMode(PIN_BUTTON, INPUT_PULLUP);
+    if (digitalRead(PIN_BUTTON) == LOW) {
+        Serial.println("Button held... Waiting 5s for OTA...");
+        delay(100); // Debounce
+        unsigned long pressStart = millis();
+        bool enterOTA = false;
+        while (digitalRead(PIN_BUTTON) == LOW) {
+            if (millis() - pressStart > 5000) {
+                enterOTA = true;
+                break;
+            }
+            delay(10);
+        }
+        
+        if (enterOTA) {
+            enterOTAMode(); // Does not return (restarts ESP)
+        }
+    }
 
     // Init NeoPixel
     pixels.begin();
@@ -1140,14 +1316,14 @@ void loop() {
             if (currentMode == MODE_EXPLORE) {
                  // Compass Mode - Always Active
                  if (gps.location.isValid() && hasHome) {
-                    dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), homeLat, homeLon);
+                    dist = calculateTotalDistanceToHome();
                  }
                  bearing = 0; // North
                  showArrow = true;
             } else {
                 // Backtrack Mode - Needs GPS
                 if (gps.location.isValid()) {
-                    dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
+                    dist = calculateTotalDistanceToHome();
                     bearing = gps.courseTo(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
                     showArrow = true;
                 }

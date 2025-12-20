@@ -103,6 +103,14 @@ Displayed when connected to a charger (Voltage > 4.4V).
 
 ![Charging Screen](mockup_charging.png)
 
+### 5. OTA Update Mode
+Activated by holding the button for **5 seconds** while powering on.
+- Creates a WiFi Access Point: `Bring_Em_Home` (No Password).
+- Connect and visit `192.168.4.1` to upload new firmware (`firmware.bin`) or filesystem (`littlefs.bin`).
+- **Indicator**: The Status LED pulses **White**.
+
+![OTA Screen](mockup_ota.png)
+
 ## 🔋 Power & Battery Life
 
 The device is optimized for long hikes. It uses dynamic CPU frequency scaling (240MHz active / 80MHz eco) and auto-display timeout.
@@ -189,7 +197,7 @@ When the battery drops below 10%:
 ### Navigation
 
 - The screen displays:
-  - **Distance** to home (in meters or km)
+  - **Distance** to home (in meters or km). *Note: This is the total path distance along your breadcrumbs, not just "as the crow flies".*
   - **Direction Arrow** pointing towards home relative to your current heading
   - **Breadcrumb Count**: Number of auto-saved waypoints (saved every 250m)
 - Follow the arrow to return to your starting point.
