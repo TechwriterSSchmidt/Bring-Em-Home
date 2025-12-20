@@ -233,15 +233,17 @@ def generate_ota():
     font_title = get_font(12, bold=True)
     font_text = get_font(11)
     
-    # Title
-    draw.text((0, 10), "OTA UPDATE MODE", font=font_title, fill=FG_COLOR)
+    lines = [
+        ("OTA UPDATE MODE", font_title, 10),
+        ("Connect WiFi:", font_text, 30),
+        ("Bring_Em_Home", font_text, 45),
+        ("Go to:", font_text, 65),
+        ("192.168.4.1", font_text, 80)
+    ]
     
-    # Info
-    draw.text((0, 25), "Connect WiFi:", font=font_text, fill=FG_COLOR)
-    draw.text((0, 40), "Bring_Em_Home", font=font_text, fill=FG_COLOR)
-    
-    draw.text((0, 60), "Go to:", font=font_text, fill=FG_COLOR)
-    draw.text((0, 75), "192.168.4.1", font=font_text, fill=FG_COLOR)
+    for text, font, y in lines:
+        w = draw.textlength(text, font=font)
+        draw.text(((WIDTH - w) / 2, y), text, font=font, fill=FG_COLOR)
     
     img.save("mockup_ota.png")
     print("Generated mockup_ota.png")

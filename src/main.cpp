@@ -399,11 +399,20 @@ void enterOTAMode() {
     u8g2.begin();
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_ncenB08_tr);
-    u8g2.drawStr(0, 10, "OTA UPDATE MODE");
-    u8g2.drawStr(0, 25, "Connect WiFi:");
-    u8g2.drawStr(0, 40, "Bring_Em_Home");
-    u8g2.drawStr(0, 60, "Go to:");
-    u8g2.drawStr(0, 75, "192.168.4.1");
+    
+    const char* lines[] = {
+        "OTA UPDATE MODE",
+        "Connect WiFi:",
+        "Bring_Em_Home",
+        "Go to:",
+        "192.168.4.1"
+    };
+    int y_positions[] = {10, 30, 45, 65, 80};
+
+    for(int i=0; i<5; i++) {
+        int w = u8g2.getStrWidth(lines[i]);
+        u8g2.drawStr((SCREEN_WIDTH - w) / 2, y_positions[i], lines[i]);
+    }
     u8g2.sendBuffer();
 
     // Start WiFi AP
