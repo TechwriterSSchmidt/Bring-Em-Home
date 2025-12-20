@@ -155,30 +155,6 @@ When the battery drops below 10%:
 - [PlatformIO](https://platformio.org/) (recommended) or Arduino IDE
 - USB drivers for ESP32-S3
 
-### Building with PlatformIO
-
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/TechwriterSSchmidt/Bring_Em_Home.git
-   cd Bring_Em_Home
-   ```
-
-2. Build the project:
-   ```bash
-   pio run
-   ```
-
-3. Upload to the ESP32-S3:
-   ```bash
-   pio run --target upload
-   ```
-
-4. Monitor serial output:
-   ```bash
-   pio device monitor
-   ```
-
-
 ## Usage
 
 ### Navigation
