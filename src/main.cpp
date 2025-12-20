@@ -1310,11 +1310,15 @@ void loop() {
             double targetLat = homeLat;
             double targetLon = homeLon;
             bool targetIsHome = true;
+            double distToTarget = 0;
             
             if (currentMode == MODE_BRING_HOME && targetBreadcrumbIndex >= 0 && !breadcrumbs.empty()) {
                 targetLat = breadcrumbs[targetBreadcrumbIndex].lat;
                 targetLon = breadcrumbs[targetBreadcrumbIndex].lon;
                 targetIsHome = false;
+                if (gps.location.isValid()) {
+                    distToTarget = gps.distanceBetween(gps.location.lat(), gps.location.lng(), targetLat, targetLon);
+                }
             }
 
             // Distance & Arrow Logic
@@ -1348,18 +1352,6 @@ void loop() {
                 // Show cardinals only in Explore Mode (where arrow points North)
                 bool showCardinals = (currentMode == MODE_EXPLORE);
                 drawArrow(SCREEN_WIDTH/2, arrowCy, 30, relBearing, showCardinals);
-                
-                // N indicator for Recording mode (REMOVED - now part of drawArrow)
-                /*
-                if (currentMode == MODE_EXPLORE) {
-                    float angleRad = (relBearing - 90) * PI / 180.0;
-                    int nx = (SCREEN_WIDTH/2) + 45 * cos(angleRad);
-                    int ny = arrowCy + 45 * sin(angleRad);
-                    u8g2.setFont(u8g2_font_ncenB10_tr);
-                    u8g2.setCursor(nx-5, ny-5);
-                    u8g2.print("N");
-                }
-                */
             } else {
                 // No GPS (Backtracking) or No Home (Recording - but arrow is always shown now)
                 if (currentMode == MODE_BRING_HOME && !gps.location.isValid()) {
@@ -1370,19 +1362,47 @@ void loop() {
 
             // Distance & Label (Bottom Footer)
             if (gps.location.isValid() && (hasHome || currentMode == MODE_BRING_HOME)) {
-                // Label (Bottom Left)
-                String label = targetIsHome ? "HOME" : "WAYPOINT";
-                u8g2.setFont(u8g2_font_ncenB10_tr);
-                u8g2.setCursor(0, 125);
-                u8g2.print(label);
+                if (!targetIsHome) {
+                    // Backtracking Mode: Show Next WP AND Home
+                    
+                    // Line 1: Next WP (Small)
+                    u8g2.setFont(u8g2_font_6x10_tr);
+                    u8g2.setCursor(0, 110);
+                    u8g2.print("NEXT:");
+                    
+                    String nextStr;
+                    if (distToTarget < 1000) nextStr = String((int)distToTarget) + "m";
+                    else nextStr = String(distToTarget / 1000.0, 2) + "km";
+                    
+                    int w = u8g2.getStrWidth(nextStr.c_str());
+                    u8g2.setCursor(SCREEN_WIDTH - w, 110);
+                    u8g2.print(nextStr);
 
-                // Distance (Bottom Right) - Always in km
-                String distStr = String(dist / 1000.0, 2) + " km";
-                
-                u8g2.setFont(u8g2_font_ncenB12_tr);
-                w = u8g2.getStrWidth(distStr.c_str());
-                u8g2.setCursor(SCREEN_WIDTH - w, 125);
-                u8g2.print(distStr);
+                    // Line 2: Home (Total)
+                    u8g2.setFont(u8g2_font_ncenB10_tr);
+                    u8g2.setCursor(0, 125);
+                    u8g2.print("HOME");
+
+                    String distStr = String(dist / 1000.0, 2) + " km";
+                    u8g2.setFont(u8g2_font_ncenB12_tr);
+                    w = u8g2.getStrWidth(distStr.c_str());
+                    u8g2.setCursor(SCREEN_WIDTH - w, 125);
+                    u8g2.print(distStr);
+                } else {
+                    // Direct Mode or Final Leg
+                    String label = "HOME";
+                    u8g2.setFont(u8g2_font_ncenB10_tr);
+                    u8g2.setCursor(0, 125);
+                    u8g2.print(label);
+
+                    // Distance (Bottom Right) - Always in km
+                    String distStr = String(dist / 1000.0, 2) + " km";
+                    
+                    u8g2.setFont(u8g2_font_ncenB12_tr);
+                    w = u8g2.getStrWidth(distStr.c_str());
+                    u8g2.setCursor(SCREEN_WIDTH - w, 125);
+                    u8g2.print(distStr);
+                }
             } else if (currentMode == MODE_EXPLORE && !hasHome) {
                  if (gps.location.isValid()) {
                     u8g2.setFont(u8g2_font_ncenB10_tr);

@@ -155,16 +155,26 @@ def generate_breadcrumb():
     draw_arrow(draw, WIDTH/2, 64, 30, 45)
     
     # Footer
-    font_footer = get_font(12, bold=True) # ncenB10 approx
-    font_dist = get_font(14, bold=True)   # ncenB12 approx
     
-    # Label "WAYPOINT"
-    draw.text((0, 110), "WAYPOINT", font=font_footer, fill=FG_COLOR)
+    # Line 1: Next WP (Baseline 110)
+    font_next = get_font(10) 
+    y1 = 110 - 10
+    draw.text((0, y1), "NEXT:", font=font_next, fill=FG_COLOR)
     
-    # Distance "0.85 km"
+    next_text = "150m"
+    w = draw.textlength(next_text, font=font_next)
+    draw.text((WIDTH - w, y1), next_text, font=font_next, fill=FG_COLOR)
+    
+    # Line 2: Home (Baseline 125)
+    font_lbl = get_font(12, bold=True)
+    font_dist = get_font(14, bold=True)
+    y2 = 125 - 14 # Use largest font height
+    
+    draw.text((0, y2), "HOME", font=font_lbl, fill=FG_COLOR)
+    
     dist_text = "0.85 km"
     w = draw.textlength(dist_text, font=font_dist)
-    draw.text((WIDTH - w, 110), dist_text, font=font_dist, fill=FG_COLOR)
+    draw.text((WIDTH - w, y2), dist_text, font=font_dist, fill=FG_COLOR)
     
     img.save("mockup_breadcrumb.png")
     print("Generated mockup_breadcrumb.png")
