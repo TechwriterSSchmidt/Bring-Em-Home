@@ -89,6 +89,10 @@ int targetBreadcrumbIndex = -1; // For backtracking
 int clickCount = 0;
 unsigned long lastClickTime = 0;
 
+// Compass Calibration State
+bool isCalibrated = false;
+bool calibSaved = false;
+
 void triggerVibration() {
     digitalWrite(PIN_VIB_MOTOR, HIGH);
     vibrationStartTime = millis();
@@ -554,6 +558,42 @@ double calculateTotalDistanceToHome() {
     return totalDist;
 }
 
+void loadCompassCalibration() {
+    Preferences calibPrefs;
+    calibPrefs.begin("bno055", true); // Read-only mode
+    adafruit_bno055_offsets_t calibrationData;
+    
+    if (calibPrefs.getBytesLength("calib") == sizeof(adafruit_bno055_offsets_t)) {
+        calibPrefs.getBytes("calib", &calibrationData, sizeof(adafruit_bno055_offsets_t));
+        bno.setSensorOffsets(calibrationData);
+        Serial.println("Compass: Calibration loaded from Flash.");
+        isCalibrated = true; 
+        calibSaved = true;   
+    } else {
+        Serial.println("Compass: No calibration found.");
+    }
+    calibPrefs.end();
+}
+
+void saveCompassCalibration() {
+    adafruit_bno055_offsets_t newCalib;
+    if (bno.getSensorOffsets(newCalib)) {
+        Preferences calibPrefs;
+        calibPrefs.begin("bno055", false); // Read-write mode
+        calibPrefs.putBytes("calib", &newCalib, sizeof(adafruit_bno055_offsets_t));
+        calibPrefs.end();
+        Serial.println("Compass: Calibration saved to Flash.");
+        
+        // Visual Feedback
+        u8g2.clearBuffer();
+        u8g2.setFont(u8g2_font_ncenB08_tr);
+        u8g2.drawStr(20, 60, "Compass Calib");
+        u8g2.drawStr(40, 80, "SAVED!");
+        u8g2.sendBuffer();
+        delay(1000); 
+    }
+}
+
 void setup() {
     // Power on VExt for sensors (GPS, LoRa, OLED)
     pinMode(PIN_VEXT, OUTPUT);
@@ -655,6 +695,9 @@ void setup() {
         fatalError("BNO055 Error!");
     }
     bno.setExtCrystalUse(true);
+    
+    // Load Calibration
+    loadCompassCalibration();
 
     // Initialize GPS (ATGM336H typically 9600 baud)
     Serial1.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
@@ -757,6 +800,18 @@ void setup() {
 void loop() {
     // Reset Watchdog Timer
     esp_task_wdt_reset();
+
+    // --- Compass Calibration Check ---
+    static unsigned long lastCalibCheck = 0;
+    if (millis() - lastCalibCheck > 1000) {
+        uint8_t system, gyro, accel, mag = 0;
+        bno.getCalibration(&system, &gyro, &accel, &mag);
+        if (!calibSaved && system == 3 && gyro == 3 && accel == 3 && mag == 3) {
+            saveCompassCalibration();
+            calibSaved = true;
+        }
+        lastCalibCheck = millis();
+    }
 
     // --- Charging Detection ---
     // User Request: Detect charging via voltage jump/level.

@@ -46,6 +46,7 @@ I've chosen a Heltec Wireless Tracker v1.1 integrates most components, simplifyi
 - **Intuitive UI**: Intuitive graphical interface with GPS signal bars and battery status.
 - **Smart Auto-Home-Position**: Automatically sets home position on power-up when GPS fix is found.
 - **Crash Recovery**: Restores home position and breadcrumbs if device restarts due to software error.
+- **Auto-Calibration Storage**: Automatically saves compass calibration data to Flash memory once fully calibrated, eliminating the need to recalibrate on every startup.
 - Save home position manually with button press (Long Press > 10s)
 - **Smart Breadcrumbs**: Records path points distance-based AND on significant direction changes (to capture turns).
 - **Smart GPS Filter**: Ignores GPS drift when standing still or moving too fast (>12km/h).
