@@ -93,6 +93,29 @@ unsigned long lastClickTime = 0;
 bool isCalibrated = false;
 bool calibSaved = false;
 
+// --- Non-Blocking Globals ---
+volatile bool transmissionFlag = false;
+bool isLoRaTransmitting = false;
+
+unsigned long feedbackEndTime = 0;
+String feedbackTitle = "";
+String feedbackSub = "";
+
+void setFlag(void) {
+  transmissionFlag = true;
+}
+
+void showFeedback(String title, String sub, int duration) {
+    feedbackTitle = title;
+    feedbackSub = sub;
+    feedbackEndTime = millis() + duration;
+    if (!isDisplayOn) {
+        u8g2.setPowerSave(0);
+        isDisplayOn = true;
+        setCpuFrequencyMhz(240);
+    }
+}
+
 void triggerVibration() {
     digitalWrite(PIN_VIB_MOTOR, HIGH);
     vibrationStartTime = millis();
@@ -181,14 +204,18 @@ void updateSOS() {
         
         // Wake up and send
         radio.standby();
-        int state = radio.transmit(msg);
+        
+        // ASYNC TRANSMISSION
+        transmissionFlag = false;
+        int state = radio.startTransmit(msg);
+        
         if (state == RADIOLIB_ERR_NONE) {
-            Serial.println("LoRa TX Success!");
+            Serial.println("LoRa TX Started...");
+            isLoRaTransmitting = true;
         } else {
             Serial.print("LoRa TX Failed, code "); Serial.println(state);
+            radio.sleep();
         }
-        // Go back to sleep to save power until next TX
-        radio.sleep();
     }
 
     // --- LED Pattern ---
@@ -581,16 +608,7 @@ void saveCompassCalibration() {
         Preferences calibPrefs;
         calibPrefs.begin("bno055", false); // Read-write mode
         calibPrefs.putBytes("calib", &newCalib, sizeof(adafruit_bno055_offsets_t));
-        calibPrefs.end();
-        Serial.println("Compass: Calibration saved to Flash.");
-        
-        // Visual Feedback
-        u8g2.clearBuffer();
-        u8g2.setFont(u8g2_font_ncenB08_tr);
-        u8g2.drawStr(20, 60, "Compass Calib");
-        u8g2.drawStr(40, 80, "SAVED!");
-        u8g2.sendBuffer();
-        delay(1000); 
+        showFeedback("Compass Calib", "SAVED!", 1000);
     }
 }
 
@@ -708,6 +726,7 @@ void setup() {
     int state = radio.begin(LORA_FREQ, 125.0, 9, 7, 0x12, 10, 8, 0, false); // EU868
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println("LoRa Init Success!");
+        radio.setDio1Action(setFlag);
         radio.sleep(); // Sleep immediately
     } else {
         Serial.print("LoRa Init Failed, code "); Serial.println(state);
@@ -732,12 +751,14 @@ void setup() {
         // Breadcrumbs löschen
         LittleFS.remove(BREADCRUMB_FILE);
         breadcrumbs.clear();
+        breadcrumbs.reserve(MAX_BREADCRUMBS);
     } else {
         Serial.printf("Reset Reason: %d. Attempting to restore session.\n", reason);
         homeLat = preferences.getDouble("lat", 0.0);
         homeLon = preferences.getDouble("lon", 0.0);
         hasHome = (homeLat != 0.0 && homeLon != 0.0);
         // Breadcrumbs laden
+        breadcrumbs.reserve(MAX_BREADCRUMBS);
         loadBreadcrumbs();
     }
     Serial.printf("Home: %f, %f (HasHome: %d)\n", homeLat, homeLon, hasHome);
@@ -800,6 +821,17 @@ void setup() {
 void loop() {
     // Reset Watchdog Timer
     esp_task_wdt_reset();
+
+    // --- LoRa Async Handler ---
+    if (transmissionFlag) {
+        transmissionFlag = false;
+        if (isLoRaTransmitting) {
+            radio.finishTransmit();
+            radio.sleep();
+            isLoRaTransmitting = false;
+            Serial.println("LoRa TX Finished.");
+        }
+    }
 
     // --- Compass Calibration Check ---
     static unsigned long lastCalibCheck = 0;
@@ -899,9 +931,6 @@ void loop() {
                 preferences.putDouble("lon", homeLon);
                 hasHome = true;
                 
-                // Feedback (LED & Vibration)
-                isLongPressHandled = true;
-                
                 // LED Blitzgewitter (Grün)
                 for(int i=0; i<5; i++) {
                     pixels.setPixelColor(0, pixels.Color(0, 255, 0)); pixels.show();
@@ -913,12 +942,7 @@ void loop() {
                 }
                 
                 // Display Feedback
-                if (!isDisplayOn) { u8g2.setPowerSave(0); isDisplayOn = true; }
-                u8g2.clearBuffer();
-                u8g2.setFont(u8g2_font_ncenB12_tr);
-                u8g2.drawStr(10, 60, "HOME RESET!");
-                u8g2.sendBuffer();
-                delay(2000);
+                showFeedback("HOME RESET!", "", 2000);
                 lastInteractionTime = millis();
             }
         }
@@ -959,11 +983,7 @@ void loop() {
         // SOS Countdown Cancellation (Any click cancels)
         if (isSOSCountdown) {
             isSOSCountdown = false;
-            u8g2.clearBuffer();
-            u8g2.setFont(u8g2_font_ncenB10_tr);
-            u8g2.drawStr(10, 60, "SOS CANCELLED");
-            u8g2.sendBuffer();
-            delay(2000);
+            showFeedback("SOS CANCELLED", "", 2000);
             clickCount = 0;
             lastInteractionTime = millis();
             // Continue loop to avoid triggering other actions
@@ -1000,29 +1020,11 @@ void loop() {
                 }
                 
                 // Feedback
-                if (!isDisplayOn) { 
-                    u8g2.setPowerSave(0); 
-                    isDisplayOn = true; 
-                    // setCpuFrequencyMhz(240); // Keep at 80MHz
-                }
-                u8g2.clearBuffer();
-                u8g2.setFont(u8g2_font_ncenB10_tr); // Smaller font to fit
-                u8g2.drawStr(5, 60, "BRING ME HOME!");
-                u8g2.sendBuffer();
-                delay(1000);
+                showFeedback("BRING ME HOME!", "", 1000);
             } else {
                 currentMode = MODE_EXPLORE;
                 // Feedback
-                if (!isDisplayOn) { 
-                    u8g2.setPowerSave(0); 
-                    isDisplayOn = true; 
-                    // setCpuFrequencyMhz(240); // Keep at 80MHz
-                }
-                u8g2.clearBuffer();
-                u8g2.setFont(u8g2_font_ncenB12_tr);
-                u8g2.drawStr(20, 60, "EXPLORER");
-                u8g2.sendBuffer();
-                delay(1000);
+                showFeedback("EXPLORER", "", 1000);
             }
             lastInteractionTime = millis();
         } else if (clickCount == 3) {
@@ -1063,17 +1065,9 @@ void loop() {
         Serial.println("Auto-Home Set (First Fix)!");
         
         // Visual Feedback
-        if (!isDisplayOn) { u8g2.setPowerSave(0); isDisplayOn = true; }
-        u8g2.clearBuffer();
-        u8g2.setFont(u8g2_font_ncenB12_tr);
-        u8g2.drawStr(10, 50, "HOME SET!");
-        u8g2.setFont(u8g2_font_6x10_tr);
-        u8g2.setCursor(10, 80);
-        u8g2.print("Lat: "); u8g2.print(homeLat, 4);
-        u8g2.setCursor(10, 95);
-        u8g2.print("Lon: "); u8g2.print(homeLon, 4);
-        u8g2.sendBuffer();
-        delay(2000);
+        String latStr = "Lat: " + String(homeLat, 4);
+        String lonStr = "Lon: " + String(homeLon, 4);
+        showFeedback("HOME SET!", latStr + "\n" + lonStr, 2000);
         lastInteractionTime = millis();
     }
 
@@ -1200,7 +1194,37 @@ void loop() {
                     u8g2.drawBox(46 + (i*9), 52, 7, 16);
                 }
 
-                // Estimated Time
+                // FEEDBACK OVERLAY ---
+            if (millis() < feedbackEndTime) {
+                u8g2.setFont(u8g2_font_ncenB10_tr);
+                w = u8g2.getStrWidth(feedbackTitle.c_str());
+                u8g2.setCursor((SCREEN_WIDTH - w) / 2, 50);
+                u8g2.print(feedbackTitle);
+                
+                if (feedbackSub.length() > 0) {
+                    u8g2.setFont(u8g2_font_6x10_tr);
+                    // Handle simple newline for 2 lines max
+                    int nl = feedbackSub.indexOf('\n');
+                    if (nl > 0) {
+                        String l1 = feedbackSub.substring(0, nl);
+                        String l2 = feedbackSub.substring(nl+1);
+                        w = u8g2.getStrWidth(l1.c_str());
+                        u8g2.setCursor((SCREEN_WIDTH - w) / 2, 75);
+                        u8g2.print(l1);
+                        w = u8g2.getStrWidth(l2.c_str());
+                        u8g2.setCursor((SCREEN_WIDTH - w) / 2, 90);
+                        u8g2.print(l2);
+                    } else {
+                        w = u8g2.getStrWidth(feedbackSub.c_str());
+                        u8g2.setCursor((SCREEN_WIDTH - w) / 2, 80);
+                        u8g2.print(feedbackSub);
+                    }
+                }
+                u8g2.sendBuffer();
+                return;
+            }
+
+            // --- Estimated Time
                 float hoursLeft = estimatedChargeTimeHours - ((float)(millis() - chargeStartTime) / 3600000.0);
                 if (hoursLeft < 0) hoursLeft = 0;
                 
@@ -1471,6 +1495,4 @@ void loop() {
             u8g2.sendBuffer();
         }
     }
-    
-    delay(10);
 }
