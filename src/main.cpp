@@ -8,16 +8,20 @@
 #include <TinyGPS++.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
+
+#ifndef HELTEC_T114
 #include <Preferences.h>
-#include <vector>
 #include <WiFi.h> // For power management
 #include <esp_task_wdt.h>
-#include <RadioLib.h>
-#include <Adafruit_NeoPixel.h>
 #include <LittleFS.h>
 #include <WebServer.h>
 #include <DNSServer.h>
 #include <Update.h>
+#endif
+
+#include <vector>
+#include <RadioLib.h>
+#include <Adafruit_NeoPixel.h>
 #include "config.h"
 
 // Display dimensions
@@ -50,10 +54,28 @@ unsigned long chargeStartTime = 0;
 // Objects
 TinyGPSPlus gps;
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
+
+#ifndef HELTEC_T114
 Preferences preferences;
-SX1262 radio = new Module(PIN_LORA_NSS, PIN_LORA_DIO1, PIN_LORA_RST, PIN_LORA_BUSY);
+#endif
+
+#ifdef HELTEC_T114
+// Use default SPI instance for nRF52
+SPIClass& loraSPI = SPI;
+#else
+// Use HSPI for ESP32
 SPIClass loraSPI(HSPI);
+#endif
+
+SX1262 radio = new Module(PIN_LORA_NSS, PIN_LORA_DIO1, PIN_LORA_RST, PIN_LORA_BUSY);
+
+#if defined(PIN_NEOPIXEL) && (PIN_NEOPIXEL >= 0)
 Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+#else
+// Dummy class or just don't use it. 
+// For simplicity, we'll create a dummy object if needed or just use -1 which is handled by library usually.
+Adafruit_NeoPixel pixels(1, -1, NEO_GRB + NEO_KHZ800);
+#endif
 
 // LoRa State
 unsigned long lastLoRaTx = 0;
@@ -112,7 +134,9 @@ void showFeedback(String title, String sub, int duration) {
     if (!isDisplayOn) {
         u8g2.setPowerSave(0);
         isDisplayOn = true;
+        #ifndef HELTEC_T114
         setCpuFrequencyMhz(240);
+        #endif
     }
 }
 
@@ -145,6 +169,19 @@ void toggleSOS() {
 // --- Helper Functions ---
 
 int getBatteryPercent() {
+    #ifdef HELTEC_T114
+    // Heltec T114 Battery Reading (Simple Approximation)
+    // ADC Resolution default is 10-bit (0-1023) in Arduino nRF52
+    // Reference is usually 3.6V internal
+    // Divider is 1/2 (100k+100k)
+    int raw = analogRead(PIN_BAT_ADC);
+    float voltage = (raw / 1023.0) * 3.6 * 2.0; 
+    
+    int pct = (int)((voltage - 3.3) * 100 / (4.2 - 3.3));
+    if (pct > 100) pct = 100;
+    if (pct < 0) pct = 0;
+    return pct;
+    #else
     // Heltec Wireless Tracker V1.1: GPIO 1, Divider ~2
     // 4.2V = 100%, 3.3V = 0%
     // Using analogReadMilliVolts for factory calibrated reading
@@ -156,6 +193,7 @@ int getBatteryPercent() {
     if (pct > 100) pct = 100;
     if (pct < 0) pct = 0;
     return pct;
+    #endif
 }
 
 void updateSOS() {
@@ -305,6 +343,7 @@ void drawArrow(int cx, int cy, int r, float angleDeg, bool showCardinals = false
 // --- Helper Functions ---
 
 void saveBreadcrumbs() {
+    #ifndef HELTEC_T114
     File file = LittleFS.open(BREADCRUMB_FILE, "w");
     if (file) {
         for (const auto& b : breadcrumbs) {
@@ -312,9 +351,11 @@ void saveBreadcrumbs() {
         }
         file.close();
     }
+    #endif
 }
 
 void loadBreadcrumbs() {
+    #ifndef HELTEC_T114
     if (LittleFS.exists(BREADCRUMB_FILE)) {
         File file = LittleFS.open(BREADCRUMB_FILE, "r");
         if (file) {
@@ -327,6 +368,7 @@ void loadBreadcrumbs() {
             Serial.printf("Loaded %d breadcrumbs from Flash.\n", breadcrumbs.size());
         }
     }
+    #endif
 }
 
 // Hilfsfunktion für kritische Fehler
@@ -347,7 +389,11 @@ void fatalError(String message) {
     #endif
 
     Serial.println("Restarting...");
+    #ifdef HELTEC_T114
+    NVIC_SystemReset();
+    #else
     ESP.restart(); // Software-Reset durchführen
+    #endif
 }
 
 // Helper: Update RGB Status LED
@@ -423,6 +469,7 @@ void updateStatusLED() {
     }
 }
 
+#ifndef HELTEC_T114
 void enterOTAMode() {
     Serial.println("Entering OTA Mode...");
     
@@ -534,6 +581,7 @@ void enterOTAMode() {
     Serial.println("OTA Timeout. Restarting...");
     ESP.restart();
 }
+#endif
 
 // Helper: Calculate Total Path Distance to Home
 double calculateTotalDistanceToHome() {
@@ -586,6 +634,7 @@ double calculateTotalDistanceToHome() {
 }
 
 void loadCompassCalibration() {
+    #ifndef HELTEC_T114
     Preferences calibPrefs;
     calibPrefs.begin("bno055", true); // Read-only mode
     adafruit_bno055_offsets_t calibrationData;
@@ -600,9 +649,11 @@ void loadCompassCalibration() {
         Serial.println("Compass: No calibration found.");
     }
     calibPrefs.end();
+    #endif
 }
 
 void saveCompassCalibration() {
+    #ifndef HELTEC_T114
     adafruit_bno055_offsets_t newCalib;
     if (bno.getSensorOffsets(newCalib)) {
         Preferences calibPrefs;
@@ -610,16 +661,21 @@ void saveCompassCalibration() {
         calibPrefs.putBytes("calib", &newCalib, sizeof(adafruit_bno055_offsets_t));
         showFeedback("Compass Calib", "SAVED!", 1000);
     }
+    #endif
 }
 
 void setup() {
+    #ifdef HELTEC_T114
     // Power on VExt for sensors (GPS, LoRa, OLED)
     pinMode(PIN_VEXT, OUTPUT);
     digitalWrite(PIN_VEXT, HIGH);
     delay(100); // Wait for power to stabilize
+    #endif
 
     // ADC Setup for Battery
+    #ifndef HELTEC_T114
     analogSetAttenuation(ADC_11db);
+    #endif
 
     Serial.begin(SERIAL_BAUD);
 
@@ -639,7 +695,9 @@ void setup() {
         }
         
         if (enterOTA) {
+            #ifndef HELTEC_T114
             enterOTAMode(); // Does not return (restarts ESP)
+            #endif
         }
     }
 
@@ -649,6 +707,7 @@ void setup() {
     pixels.clear();
     pixels.show();
 
+    #ifndef HELTEC_T114
     // Initialize Watchdog Timer
     esp_task_wdt_init(WDT_TIMEOUT, true); // Enable panic so ESP32 restarts
     esp_task_wdt_add(NULL); // Add current thread to WDT watch
@@ -680,9 +739,10 @@ void setup() {
             esp_deep_sleep_start();
         }
     }
+    #endif
 
     delay(2000);
-    Serial.println("\n\n=== ESP32-S3 Bring Em Home ===");
+    Serial.println("\n\n=== Bring Em Home ===");
     
     // Button Setup
     pinMode(PIN_BUTTON, INPUT_PULLUP);
@@ -703,9 +763,14 @@ void setup() {
     delay(500); // Give sensors time to wake up
 
     // Initialize Sensors
+    #ifdef HELTEC_T114
+    Wire.setPins(PIN_I2C_SDA, PIN_I2C_SCL);
+    Wire.begin();
+    #else
     if (!Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL)) {
         fatalError("I2C Bus Fehler!");
     }
+    #endif
     
     // Initialize BNO055
     if (!bno.begin()) {
@@ -718,11 +783,21 @@ void setup() {
     loadCompassCalibration();
 
     // Initialize GPS (ATGM336H typically 9600 baud)
+    #ifdef HELTEC_T114
+    Serial1.setPins(PIN_GPS_RX, PIN_GPS_TX);
+    Serial1.begin(9600);
+    #else
     Serial1.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+    #endif
     // GPS defaults to ON when powered
 
     // Initialize LoRa (SX1262)
+    #ifdef HELTEC_T114
+    loraSPI.setPins(PIN_LORA_MISO, PIN_LORA_SCK, PIN_LORA_MOSI);
+    loraSPI.begin();
+    #else
     loraSPI.begin(PIN_LORA_SCK, PIN_LORA_MISO, PIN_LORA_MOSI, PIN_LORA_NSS);
+    #endif
     int state = radio.begin(LORA_FREQ, 125.0, 9, 7, 0x12, 10, 8, 0, false); // EU868
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println("LoRa Init Success!");
@@ -733,6 +808,7 @@ void setup() {
         // Non-fatal, we continue
     }
     
+    #ifndef HELTEC_T114
     // Initialize Preferences
     if (!preferences.begin("bringemhome", false)) {
         fatalError("Preferences Init Failed!");
@@ -762,6 +838,7 @@ void setup() {
         loadBreadcrumbs();
     }
     Serial.printf("Home: %f, %f (HasHome: %d)\n", homeLat, homeLon, hasHome);
+    #endif
     
     startTime = millis(); // Start timer for auto-home
 
@@ -771,8 +848,10 @@ void setup() {
     u8g2.setFontPosTop(); // Easier coordinate handling
     
     // Memory Debugging
+    #ifndef HELTEC_T114
     Serial.printf("Total Heap: %d, Free Heap: %d\n", ESP.getHeapSize(), ESP.getFreeHeap());
     Serial.printf("Total PSRAM: %d, Free PSRAM: %d\n", ESP.getPsramSize(), ESP.getFreePsram());
+    #endif
 
     u8g2.clearBuffer();
     
@@ -820,7 +899,9 @@ void setup() {
 
 void loop() {
     // Reset Watchdog Timer
+    #ifndef HELTEC_T114
     esp_task_wdt_reset();
+    #endif
 
     // --- LoRa Async Handler ---
     if (transmissionFlag) {
@@ -852,6 +933,9 @@ void loop() {
     
     static unsigned long lastChargeCheck = 0;
     if (millis() - lastChargeCheck > 1000) {
+        #ifdef HELTEC_T114
+        // Placeholder for T114 charging detection
+        #else
         uint32_t voltage_mv = analogReadMilliVolts(1) * 2;
         
         // Threshold: 4400mV (4.4V)
@@ -874,6 +958,7 @@ void loop() {
              // This ensures we have a good reading before the voltage spikes
              lastValidBatteryPct = getBatteryPercent();
         }
+        #endif
         lastChargeCheck = millis();
     }
 
@@ -927,8 +1012,10 @@ void loop() {
                 // Action
                 homeLat = gps.location.lat();
                 homeLon = gps.location.lng();
+                #ifndef HELTEC_T114
                 preferences.putDouble("lat", homeLat);
                 preferences.putDouble("lon", homeLon);
+                #endif
                 hasHome = true;
                 
                 // LED Blitzgewitter (Grün)
@@ -992,11 +1079,15 @@ void loop() {
             if (isDisplayOn) {
                 u8g2.setPowerSave(1); // Display OFF
                 isDisplayOn = false;
+                #ifndef HELTEC_T114
                 setCpuFrequencyMhz(80); // Low power mode
+                #endif
             } else {
                 u8g2.setPowerSave(0); // Display ON
                 isDisplayOn = true;
+                #ifndef HELTEC_T114
                 setCpuFrequencyMhz(240); // High performance mode
+                #endif
                 lastInteractionTime = millis();
             }
         } else if (clickCount == 2) {
@@ -1060,8 +1151,10 @@ void loop() {
         homeLat = gps.location.lat();
         homeLon = gps.location.lng();
         hasHome = true;
+        #ifndef HELTEC_T114
         preferences.putDouble("lat", homeLat);
         preferences.putDouble("lon", homeLon);
+        #endif
         Serial.println("Auto-Home Set (First Fix)!");
         
         // Visual Feedback
@@ -1155,13 +1248,17 @@ void loop() {
     if (isDisplayOn && (millis() - lastInteractionTime > DISPLAY_TIMEOUT)) {
         u8g2.setPowerSave(1); // Display OFF
         isDisplayOn = false;
+        #ifndef HELTEC_T114
         setCpuFrequencyMhz(80); // Low power mode
+        #endif
     }
 
     // 9. Update Display
     if (isDisplayOn) {
         // Ensure high performance when display is ON
+        #ifndef HELTEC_T114
         if (getCpuFrequencyMhz() < 240) setCpuFrequencyMhz(240);
+        #endif
 
         static unsigned long lastUpdate = 0;
         if (millis() - lastUpdate > 100) { // 10Hz update for smooth compass
