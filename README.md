@@ -38,25 +38,32 @@ Your tip motivates me to continue developing nerdy stuff for the DIY community. 
 - **Button**: Pin 42 (P1.10) - Active Low
 - **Vibration Motor**: Pin 36 (P1.04)
 - **Flashlight LED**: Pin 38 (P1.06)
+- **WS2812 LED**: Pin 40 (P1.08) - External Status LED
 - **Battery Voltage**: Pin 4 (P0.04 / AIN2)
-
-*(Note: The older ESP32-S3 pinout is still supported in code via `config.h` but deprecated)*
+- **Battery Control**: Pin 6 (P0.06) - Voltage Divider Enable
 
 ## Power Management (New!)
 
-The device now features a **Deep Sleep (Soft-Off)** mode that consumes negligible power (< 50µA), allowing the battery to last for months/years in standby.
+The device now features a **Deep Sleep** mode that consumes negligible power (< 50µA), allowing the battery to last for months/years in standby.
 
-- **Turn ON**: Hold Button for **3 Seconds** (Vibration feedback).
-- **Turn OFF**: Hold Button for **3 Seconds** (Vibration feedback -> Screen Off).
+- **Turn ON**: Hold Button for **3 Seconds** (Rising Vibration: Short-Short-Long).
+- **Turn OFF**: Hold Button for **3 Seconds** (Falling Vibration: Long-Short-Short).
 - **Wake Up**: Single click wakes the device from sleep (if not fully powered down).
+- **Charging Detection**: Checks for charger connection every 1s for the first 5 minutes after boot, then stops to save power.
 
 ### Estimated Battery Life (2000mAh LiPo)
 
 | Mode | Current Draw | Estimated Runtime |
 |------|--------------|-------------------|
 | **Active (Hiking)** | ~70 mA | ~28 Hours |
-| **Standby (Soft-Off)** | < 0.1 mA | > 1 Year |
+| **Deep Sleep** | < 0.1 mA | > 1 Year |
 | **SOS Mode** | ~220 mA (Peak) | ~9 Hours |
+
+## Performance & Stability
+
+- **Non-Blocking Logic**: All critical systems (LEDs, Vibration, LoRa) use non-blocking state machines to ensure the main loop never freezes.
+- **10Hz Display Limit**: The screen refresh rate is capped at 10Hz (100ms) to prioritize GPS data processing and prevent buffer overflows.
+- **Sensor Startup**: Optimized boot sequence ensures sensors (BNO055, GPS) are fully powered before initialization.
 
 ## Features
 
@@ -69,7 +76,7 @@ The device now features a **Deep Sleep (Soft-Off)** mode that consumes negligibl
 - **Smart GPS Filter**: Ignores GPS drift when standing still or moving too fast (>12km/h).
 - **Safety First**: SOS Beacon with LoRa transmission, Morse code flasher, and battery runtime estimation.
 - **Charging Detection**: Automatically detects wall charger and shows charging progress.
-- Backtracking mode to retrace steps
+- **Return Mode**: Backtracking mode to retrace steps.
 - Calculate distance to home/waypoint
 - Digital compass (North Arrow)
 - Visual navigation arrow (Target Arrow)
@@ -78,19 +85,32 @@ The device now features a **Deep Sleep (Soft-Off)** mode that consumes negligibl
 
 ## Configuration
 
-You can customize the device settings in `include/config.h`. This includes hardware pins, timeouts, and **User Data** for the SOS message. Use the OTA functionality to update the firmware.
+You can customize the device settings in `include/config.h`. This includes hardware pins, timeouts, and **User Data** for the SOS message.
+
+### Default Settings Table
+
+| Parameter | Value | Description |
+| :--- | :--- | :--- |
+| **Navigation** | | |
+| `BREADCRUMB_DIST` | `100.0` m | Distance between regular breadcrumbs |
+| `MAX_BREADCRUMBS` | `8500` | Max number of stored waypoints (~850km range) |
+| `MIN_SPEED_KPH` | `1.0` km/h | Min speed to record (prevents GPS drift) |
+| `MAX_SPEED_KPH` | `12.0` km/h | Max speed (prevents glitches) |
+| `BREADCRUMB_TURN_THRESHOLD` | `45.0` ° | Angle change to trigger smart breadcrumb |
+| `BREADCRUMB_MIN_DIST_TURN` | `20.0` m | Min distance to check for turns |
+| **Power & Timing** | | |
+| `DISPLAY_TIMEOUT` | `120000` ms | Display auto-off time (2 minutes) |
+| `LORA_TX_INTERVAL` | `60000` ms | SOS Beacon interval (1 minute) |
+| `BAT_CHECK_INTERVAL_ACTIVE` | `60000` ms | Battery check interval (Display ON) |
+| `BAT_CHECK_INTERVAL_IDLE` | `300000` ms | Battery check interval (Display OFF) |
+| `CHARGE_CHECK_INTERVAL` | `3000` ms | Charger detection polling rate |
+| `CHARGE_CHECK_DURATION` | `300000` ms | Time to poll for charger after boot (5 mins) |
 
 **User Data Options:**
 - `USER_BLOOD_TYPE`: Your blood type (e.g., "A+").
 - `USER_GENDER`: Your gender (e.g., "female"). *Optional: Comment out to disable.*
 - `USER_BIRTH_YEAR`: Your birth year (e.g., 1992). The device calculates age automatically from GPS time. *Optional: Comment out to disable.*
 - `USER_MED_ALLERGIES`: Medication allergies (e.g., "Penicillin"). *Optional: Comment out to disable.*
-
-**Navigation Settings:**
-- `BREADCRUMB_DIST`: Distance between regular breadcrumbs (default: 250m).
-- `BREADCRUMB_TURN_THRESHOLD`: Angle change to trigger a smart breadcrumb (default: 45°).
-- `BREADCRUMB_MIN_DIST_TURN`: Minimum distance moved before checking for a turn (default: 20m).
-- `MAX_BREADCRUMBS`: Maximum number of stored points (default: 1000).
 
 These details are included in the LoRa SOS beacon to assist rescue teams.
 
