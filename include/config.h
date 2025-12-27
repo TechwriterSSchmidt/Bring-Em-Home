@@ -31,7 +31,7 @@
 #define PIN_FLASHLIGHT      38      // P1.06 (Flashlight LED)
 
 // --- Power Management ---
-#define BATTERY_CAPACITY_MAH 2000   // Battery Capacity in mAh (Adjust to your battery)
+#define BATTERY_CAPACITY_MAH 1500   // Battery Capacity in mAh (Adjust to your battery)
 #define SOS_CURRENT_MA      220     // Estimated current consumption in SOS mode (mA)
 #define CHARGE_CURRENT_MA   500     // Estimated charging current (mA) - usually 500mA for USB
 #define DISPLAY_TIMEOUT     120000  // Display Auto-Off (ms) -> 2 Minutes
@@ -85,7 +85,7 @@
 #define BNO055_ID           55      // BNO055 Sensor ID
 #define BNO055_ADDRESS      0x28    // BNO055 I2C Address
 #define I2C_SPEED_FAST      400000  // I2C Speed (400kHz)
-#define GPS_BAUD            9600    // GPS Serial Baud Rate
+#define GPS_BAUD            9600    // GPS Serial Baud Rate (Matek M10Q default)
 #define NEOPIXEL_INDEX      0       // Index of the single NeoPixel
 
 // LoRa Configuration
