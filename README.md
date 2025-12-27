@@ -15,8 +15,9 @@ Your tip motivates me to continue developing nerdy stuff for the DIY community. 
 ## Hardware Requirements
 
 - **Heltec Mesh Node T114 (nRF52840)**
-  - Ultra-low power nRF52840 MCU, SX1262 LoRa, and L76K GNSS.
-  - Replaces the older ESP32-S3 version for vastly improved battery life.
+  - Ultra-low power nRF52840 MCU, SX1262 LoRa.
+- **Matek SAM-M10Q GNSS**
+  - High-precision Multi-Constellation GPS (M10 Chip).
 - **1.5" OLED Display**
   - SH1107 Driver, 128x128 resolution, I2C interface.
 - **Bosch BNO055 9-Axis Absolute Orientation Sensor**
@@ -165,21 +166,21 @@ Activated by holding the button for **5 seconds** while powering on.
 
 ## 🔋 Power & Battery Life
 
-The device is optimized for long hikes. It uses dynamic CPU frequency scaling (240MHz active / 80MHz eco) and auto-display timeout.
+The device is optimized for long hikes using the ultra-low power **nRF52840** MCU and the efficient **Matek M10Q** GPS.
 
 **Settings:**
 - **Display Timeout:** 120 seconds (configurable in `src/config.h`)
 - **Status LED:** 40% Brightness
-- **CPU:** Auto-throttling when display is off.
+- **GPS Mode:** Continuous Tracking (High Precision)
 - **LoRa SOS:** Transmits every 60 seconds (in SOS mode).
 
-| Battery Capacity | Hiking Mode (Avg. Consumption ~90mA) | SOS Mode (Avg. Consumption ~220mA) |
+| Battery Capacity | Hiking Mode (Avg. Consumption ~40mA) | SOS Mode (Avg. Consumption ~100mA) |
 | :--- | :--- | :--- |
-| **1500 mAh** | **~14 Hours** | **~5.5 Hours** |
-| **2000 mAh** | **~19 Hours** | **~7.5 Hours** |
-| **3000 mAh** | **~28 Hours** | **~11 Hours** |
+| **1500 mAh** | **~32 Hours** | **~12 Hours** |
+| **2000 mAh** | **~42 Hours** | **~17 Hours** |
+| **3000 mAh** | **~64 Hours** | **~25 Hours** |
 
-*> Note: Estimates include a 15% safety margin for converter losses and battery aging.*
+*> Note: Estimates include a 15% safety margin for converter losses and battery aging. "Hiking Mode" assumes display is mostly off (tracking in background).*
 
 ### Low Battery Warning
 When the battery drops below 10%:
@@ -191,7 +192,7 @@ When the battery drops below 10%:
 
 ### Prerequisites
 - [PlatformIO](https://platformio.org/) (recommended)
-- USB drivers for ESP32-S3
+- USB drivers for nRF52840 (usually automatic on Win10/11)
 
 ## Usage
 
