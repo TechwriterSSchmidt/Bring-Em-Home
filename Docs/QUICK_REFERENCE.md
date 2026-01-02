@@ -5,13 +5,15 @@
 1. **Power On**: Hold Button for **3 Seconds** (Vibration: Short-Short-Long).
 2. **Wait for GPS**: Go outdoors and wait for satellite lock (1-5 min).
    - *Screen says: "Searching SATs"*
-3. **Auto-Home**: The first valid GPS fix automatically sets your "Home" position.
-   - *Feedback: "HOME SET!"*
+3. **Confirm Home**: When GPS is found, the screen asks "SET HOME?".
+   - **1 Click**: Set **NEW** Home (Current Location).
+   - **2 Clicks**: Load **SAVED** Home (e.g., Car).
 
 ## 🎯 Navigation Modes
 
 ### 1. Explore Mode (Default)
 - **Display**: Shows Compass, Speed, and Distance from Home.
+- **Buddy Tracking**: Shows a hollow arrow pointing to your partner if they are nearby.
 - **Function**: Records "Breadcrumbs" (Waypoints) automatically as you walk.
 - **Action**: Enjoy your hike!
 
@@ -26,7 +28,9 @@
 | Icon/Text | Meaning |
 |-----------|---------|
 | **House Icon** | Your starting point (Home). |
-| **Arrow** | Direction to walk. Keep it pointing UP. |
+| **Solid Arrow** | Direction to Home/Waypoint. Keep it pointing UP. |
+| **Hollow Arrow** | Direction to your Buddy (Partner Device). |
+| **B: 120m** | Distance to Buddy (Top Left). "?" means old data. |
 | **Bars (Top R)** | GPS Signal Strength (1-4 bars). |
 | **Bat %** | Battery Level. |
 | **C:Good** | Compass Calibration Status. |
@@ -39,8 +43,9 @@
 | **Switch Mode** | 2 Clicks | Explore ↔ Return Mode |
 | **Flashlight** | 3 Clicks | Toggle LED Light |
 | **SOS Mode** | 5 Clicks | Start SOS Countdown (LoRa Beacon) |
-| **Power OFF** | Hold 3s | Deep Sleep (Vibration: Long-Short-Short) |
-| **Reset Home** | Hold >10s | Set NEW Home Position (Overwrite old) |
+| **Panic Mode** | Hold 3-6s | **IMMEDIATE** Return Mode (Safety) |
+| **Power OFF** | Hold >6s | Deep Sleep (Vibration: Long-Short-Short) |
+| **Confirm Home** | 1/2 Clicks | 1x=New Home, 2x=Load Saved (At Boot) |
 
 ## ⚡ Charging & Battery
 

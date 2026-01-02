@@ -20,8 +20,9 @@ Your tip motivates me to continue developing cool stuff for the DIY community. T
   - High-precision Multi-Constellation GPS (M10 Chip).
 - **1.5" OLED Display**
   - SH1107 Driver, 128x128 resolution, I2C interface.
-- **Bosch BNO055 9-Axis Absolute Orientation Sensor**
-  - For precise compass heading.
+- **Bosch BNO055 or BNO085 IMU**
+  - BNO055: Standard 9-Axis Absolute Orientation Sensor.
+  - BNO085: High-precision VR-grade sensor (Recommended for best performance).
 - **Peripherals (Optional)**
   - Vibration Motor
   - Flashlight LED
@@ -48,17 +49,22 @@ Your tip motivates me to continue developing cool stuff for the DIY community. T
 The device now features a **Deep Sleep** mode that consumes negligible power (< 50µA), allowing the battery to last for months/years in standby.
 
 - **Turn ON**: Hold Button for **3 Seconds** (Rising Vibration: Short-Short-Long).
-- **Turn OFF**: Hold Button for **3 Seconds** (Falling Vibration: Long-Short-Short).
+- **Panic Mode**: Hold Button for **3-6 Seconds** (Triggers Return Mode immediately).
+- **Turn OFF**: Hold Button for **> 6 Seconds** (Falling Vibration: Long-Short-Short).
 - **Wake Up**: Single click wakes the device from sleep (if not fully powered down).
 - **Charging Detection**: Checks for charger connection every 1s for the first 5 minutes after boot, then stops to save power.
 
-### Estimated Battery Life (2000mAh LiPo)
+### Estimated Battery Life (1500mAh LiPo)
 
 | Mode | Current Draw | Estimated Runtime |
 |------|--------------|-------------------|
-| **Active (Hiking)** | ~70 mA | ~28 Hours |
-| **Deep Sleep** | < 0.1 mA | > 1 Year |
-| **SOS Mode** | ~220 mA (Peak) | ~9 Hours |
+| **Hiking (Display Auto-Off)** | ~30 mA | ~50 Hours |
+| **Hiking (Display Always On)** | ~50 mA | ~30 Hours |
+| **Buddy Mode (Smart Sync)** | ~32 mA | ~46 Hours |
+| **SOS Mode (High Power)** | ~220 mA (Peak) | ~7 Hours |
+| **Deep Sleep** | < 0.05 mA | > 1 Year |
+
+*Note: "Smart Sync" significantly reduces power consumption in Buddy Mode by synchronizing LoRa receive windows with GPS time.*
 
 ## Performance & Stability
 
@@ -76,8 +82,12 @@ The device now features a **Deep Sleep** mode that consumes negligible power (< 
 - **Smart Breadcrumbs**: Records path points distance-based AND on significant direction changes (to capture turns).
 - **Smart GPS Filter**: Ignores GPS drift when standing still or moving too fast (>12km/h).
 - **Safety First**: SOS Beacon with LoRa transmission, Morse code flasher, and battery runtime estimation.
+- **Panic Button**: Long press (3s) immediately activates Return Mode to guide you home.
+- **Manual Home Confirmation**: Prevents accidental home resets. On boot, you choose to set a new home or load the previous one (e.g., your car).
+- **Calibration Warning**: Displays "CAL!" if the compass needs calibration.
 - **Charging Detection**: Automatically detects wall charger and shows charging progress.
 - **Return Mode**: Backtracking mode to retrace steps.
+- **Buddy Tracking**: Two-way location sharing with a partner device (Distance + Direction).
 - Calculate distance to home/waypoint
 - Digital compass (North Arrow)
 - Visual navigation arrow (Target Arrow)
@@ -106,6 +116,9 @@ You can customize the device settings in `include/config.h`. This includes hardw
 | `BAT_CHECK_INTERVAL_IDLE` | `300000` ms | Battery check interval (Display OFF) |
 | `CHARGE_CHECK_INTERVAL` | `3000` ms | Charger detection polling rate |
 | `CHARGE_CHECK_DURATION` | `300000` ms | Time to poll for charger after boot (5 mins) |
+| **Buddy Tracking** | | |
+| `BUDDY_DEVICE_ID` | `0` or `1` | Unique ID for time-slot synchronization |
+| `ENABLE_SMART_POWER` | `1` | Enable GPS-synced power saving |
 
 **User Data Options:**
 - `USER_BLOOD_TYPE`: Your blood type (e.g., "A+").
@@ -127,7 +140,14 @@ Shows the direction to Home (or next waypoint), current compass heading, and dis
 
 ![Navigation Screen](Screens/mockup_nav.png)
 
-### 2. Breadcrumb Mode (Backtracking)
+### 2. Buddy Tracking (Overlay)
+When a partner device is detected via LoRa P2P:
+- **Buddy Arrow**: A secondary, hollow arrow appears on the compass ring, pointing towards your partner.
+- **Distance**: The distance to your partner is displayed in the **Top Left** corner (e.g., "B: 150m").
+- **Stale Data**: If the signal is older than 60 seconds, a "?" is appended (e.g., "B: 150m?").
+- This overlay is active in **Explorer Mode**.
+
+### 3. Breadcrumb Mode (Backtracking)
 Activated by a **Double Click**. Guides you back to your starting point by following your recorded path in reverse.
 - **Header**: Same as Explorer Mode.
 - **Center**: Direction Arrow pointing to the **Next Waypoint**. (No cardinal directions shown).
@@ -135,12 +155,12 @@ Activated by a **Double Click**. Guides you back to your starting point by follo
 
 ![Breadcrumb Screen](Screens/mockup_breadcrumb.png)
 
-### 3. Searching for GPS
+### 4. Searching for GPS
 Displayed when no GPS fix is available. Shows "Searching SATs" with an animated progress bar.
 
 ![Searching Screen](Screens/mockup_searching.png)
 
-### 4. SOS Mode
+### 5. SOS Mode
 Activated by 5 rapid clicks. 
 1.  **Countdown**: A 5-second countdown allows you to cancel accidental triggers.
 2.  **Active**: Displays a huge countdown to the next LoRa transmission.
@@ -149,14 +169,14 @@ Activated by 5 rapid clicks.
 ![SOS Countdown](Screens/mockup_sos_countdown.png)
 ![SOS Screen](Screens/mockup_sos.png)
 
-### 5. Charging Mode
+### 6. Charging Mode
 Displayed when connected to a charger (Voltage > 4.4V). 
 - Shows "Loading battery..." and an animated battery icon.
 - Displays **Estimated Time to Full** (e.g., "Est: 1.5h").
 
 ![Charging Screen](Screens/mockup_charging.png)
 
-### 6. OTA Update Mode
+### 7. OTA Update Mode
 Activated by holding the button for **5 seconds** while powering on.
 - Creates a WiFi Access Point: `Bring_Em_Home` (No Password).
 - Connect and visit `192.168.4.1` to upload new firmware (`firmware.bin`) or filesystem (`littlefs.bin`).
@@ -173,14 +193,6 @@ The device is optimized for long hikes using the ultra-low power **nRF52840** MC
 - **Status LED:** 40% Brightness
 - **GPS Mode:** Continuous Tracking (High Precision)
 - **LoRa SOS:** Transmits every 60 seconds (in SOS mode).
-
-| Battery Capacity | Hiking Mode (Avg. Consumption ~40mA) | SOS Mode (Avg. Consumption ~100mA) |
-| :--- | :--- | :--- |
-| **1500 mAh** | **~32 Hours** | **~12 Hours** |
-| **2000 mAh** | **~42 Hours** | **~17 Hours** |
-| **3000 mAh** | **~64 Hours** | **~25 Hours** |
-
-*> Note: Estimates include a 15% safety margin for converter losses and battery aging. "Hiking Mode" assumes display is mostly off (tracking in background).*
 
 ### Low Battery Warning
 When the battery drops below 10%:

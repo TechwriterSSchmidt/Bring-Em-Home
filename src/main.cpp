@@ -3,17 +3,26 @@
 // Hardware: nRF52840 + SH1107 OLED + BNO055 + L76K GNSS
 
 #include <Arduino.h>
+#include "config.h" // Config must be included first to define USE_BNO085
 #include <U8g2lib.h>
 #include <Wire.h>
 #include <TinyGPS++.h>
 #include <Adafruit_Sensor.h>
+#include <Adafruit_LittleFS.h>
+#include <InternalFileSystem.h>
+
+using namespace Adafruit_LittleFS_Namespace;
+
+#if USE_BNO085
+#include <Adafruit_BNO08x.h>
+#else
 #include <Adafruit_BNO055.h>
+#endif
 #include <nrf_gpio.h>
 #include <nrf_power.h>
 #include <vector>
 #include <RadioLib.h>
 #include <Adafruit_NeoPixel.h>
-#include "config.h"
 
 // Display dimensions
 #define SCREEN_WIDTH  128
@@ -44,12 +53,57 @@ unsigned long chargeStartTime = 0;
 
 // Objects
 TinyGPSPlus gps;
+
+// --- FileSystem Helpers ---
+void saveHomePosition(double lat, double lon) {
+    InternalFS.begin();
+    File file = InternalFS.open("/home.txt", FILE_O_WRITE);
+    if (file) {
+        file.seek(0);
+        file.print(String(lat, 8));
+        file.print(",");
+        file.print(String(lon, 8));
+        file.close();
+        Serial.println("Home Saved to Flash!");
+    }
+}
+
+bool loadHomePosition(double &lat, double &lon) {
+    InternalFS.begin();
+    File file = InternalFS.open("/home.txt", FILE_O_READ);
+    if (file) {
+        String content = file.readString();
+        int comma = content.indexOf(',');
+        if (comma > 0) {
+            lat = atof(content.substring(0, comma).c_str());
+            lon = atof(content.substring(comma + 1).c_str());
+            file.close();
+            Serial.println("Home Loaded from Flash: " + String(lat, 6) + ", " + String(lon, 6));
+            return true;
+        }
+        file.close();
+    }
+    return false;
+}
+#if USE_BNO085
+Adafruit_BNO08x bno08x(PIN_LORA_RST); // Reset pin not strictly needed if tied to MCU reset, but good practice
+sh2_SensorValue_t sensorValue;
+#else
 Adafruit_BNO055 bno = Adafruit_BNO055(BNO055_ID, BNO055_ADDRESS);
+#endif
 
 // Use default SPI instance for nRF52
 SPIClass& loraSPI = SPI;
 
 SX1262 radio = new Module(PIN_LORA_NSS, PIN_LORA_DIO1, PIN_LORA_RST, PIN_LORA_BUSY);
+
+// LoRaWAN Globals (Hybrid Mode)
+LoRaWANNode* node = nullptr;
+bool loraWanJoined = false;
+uint64_t joinEUI = LORAWAN_JOIN_EUI;
+uint64_t devEUI = LORAWAN_DEV_EUI;
+uint8_t appKey[] = LORAWAN_APP_KEY;
+uint8_t nwkKey[] = LORAWAN_APP_KEY; // For LoRaWAN 1.0.x, NwkKey is usually same as AppKey
 
 // Dummy NeoPixel for now as it's disabled in config
 #if defined(PIN_NEOPIXEL) && (PIN_NEOPIXEL >= 0)
@@ -67,15 +121,20 @@ U8G2_SH1107_128X128_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 // App Modes
 enum AppMode {
     MODE_EXPLORE,
-    MODE_RETURN
+    MODE_RETURN,
+    MODE_CONFIRM_HOME
 };
-AppMode currentMode = MODE_EXPLORE;
+AppMode currentMode = MODE_CONFIRM_HOME; // Start in Confirm Mode (Wait for GPS)
 
 // Navigation Data
 double homeLat = 0.0;
 double homeLon = 0.0;
+double savedHomeLat = 0.0;
+double savedHomeLon = 0.0;
+bool hasSavedHome = false;
 bool hasHome = false;
-int currentHeading = 0;
+double currentHeading = 0.0;
+double displayedHeading = 0.0;
 unsigned long startTime = 0;
 
 // Breadcrumbs
@@ -97,6 +156,13 @@ bool calibSaved = false;
 // --- Non-Blocking Globals ---
 volatile bool transmissionFlag = false;
 bool isLoRaTransmitting = false;
+
+// Buddy Tracking
+double buddyLat = 0.0;
+double buddyLon = 0.0;
+unsigned long lastBuddyPacketTime = 0;
+bool hasBuddy = false;
+unsigned long lastBuddyTx = 0; // For sending periodic updates
 
 unsigned long feedbackEndTime = 0;
 String feedbackTitle = "";
@@ -222,7 +288,6 @@ int getBatteryPercent() {
 
 // Helper: Update RGB Status LED (Non-Blocking)
 void updateStatusLED() {
-    static unsigned long lastBlink = 0;
     static int pulseBrightness = 0;
     static int pulseDir = 5;
     static unsigned long lastPulseTime = 0;
@@ -321,21 +386,87 @@ void updateSOS() {
         float remainingCap = (float)BATTERY_CAPACITY_MAH * ((float)batPct / 100.0);
         float runtimeHours = remainingCap / (float)SOS_CURRENT_MA;
 
-        String msg = String(SOS_MSG_TEXT) + " Lat:" + String(gps.location.lat(), 6) + 
-                     " Lon:" + String(gps.location.lng(), 6) + 
-                     " Bat:" + String(batPct) + "%" +
-                     " Est:" + String(runtimeHours, 1) + "h";
+        // --- Hybrid Mode Logic ---
+        bool sentViaLoRaWAN = false;
 
-        Serial.print("Sending LoRa SOS: "); Serial.println(msg);
-        
-        radio.standby();
-        transmissionFlag = false;
-        int state = radio.startTransmit(msg);
-        
-        if (state == RADIOLIB_ERR_NONE) {
-            isLoRaTransmitting = true;
-        } else {
-            radio.sleep();
+        #if ENABLE_LORAWAN
+        if (!node) {
+             node = new LoRaWANNode(&radio, &EU868);
+        }
+
+        // Try to join if not joined
+        if (!loraWanJoined) {
+            Serial.println("LoRaWAN: Attempting Join...");
+            // Note: beginOTAA is usually called once to set keys, then activateOTAA does the join
+            node->beginOTAA(joinEUI, devEUI, nwkKey, appKey);
+            int state = node->activateOTAA();
+            if (state == RADIOLIB_ERR_NONE) {
+                Serial.println("LoRaWAN: Joined!");
+                loraWanJoined = true;
+            } else {
+                Serial.print("LoRaWAN: Join Failed, code "); Serial.println(state);
+            }
+        }
+
+        if (loraWanJoined) {
+             // Prepare Payload (CayenneLPP style or simple bytes)
+             // 4 bytes Lat, 4 bytes Lon, 1 byte Bat
+             uint8_t payload[9];
+             int32_t lat = gps.location.lat() * 1000000;
+             int32_t lon = gps.location.lng() * 1000000;
+             
+             payload[0] = (lat >> 24) & 0xFF;
+             payload[1] = (lat >> 16) & 0xFF;
+             payload[2] = (lat >> 8) & 0xFF;
+             payload[3] = lat & 0xFF;
+             payload[4] = (lon >> 24) & 0xFF;
+             payload[5] = (lon >> 16) & 0xFF;
+             payload[6] = (lon >> 8) & 0xFF;
+             payload[7] = lon & 0xFF;
+             payload[8] = (uint8_t)batPct;
+
+             Serial.println("LoRaWAN: Sending Uplink...");
+             int state = node->sendReceive(payload, 9);
+             if (state == RADIOLIB_ERR_NONE) {
+                 Serial.println("LoRaWAN: Sent!");
+                 sentViaLoRaWAN = true;
+             } else {
+                 Serial.print("LoRaWAN: Send Failed, code "); Serial.println(state);
+                 // If send fails, maybe we lost coverage. 
+                 // We don't reset loraWanJoined immediately to avoid re-joining loop, 
+                 // but for SOS reliability, we fall back to P2P.
+             }
+        }
+        #endif
+
+        if (!sentViaLoRaWAN) {
+            // Fallback to P2P
+            Serial.println("LoRa P2P: Sending SOS...");
+            
+            // Re-Initialize for P2P (overwrites LoRaWAN config)
+            radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, LORA_SYNC_WORD, LORA_POWER, LORA_PREAMBLE, LORA_GAIN, false);
+            
+            String msg = String(SOS_MSG_TEXT) + " Lat:" + String(gps.location.lat(), 6) + 
+                         " Lon:" + String(gps.location.lng(), 6) + 
+                         " Bat:" + String(batPct) + "%" +
+                         " Est:" + String(runtimeHours, 1) + "h";
+
+            radio.standby();
+            transmissionFlag = false;
+            int state = radio.startTransmit(msg);
+            
+            if (state == RADIOLIB_ERR_NONE) {
+                isLoRaTransmitting = true;
+            } else {
+                radio.sleep();
+            }
+            
+            // Note: If we switched to P2P, the LoRaWAN session in the radio chip is lost.
+            // Next time we try LoRaWAN, we might need to restore it or re-join.
+            // For simplicity in this Hybrid implementation, we will force a re-join next time if ENABLE_LORAWAN is on.
+            #if ENABLE_LORAWAN
+            loraWanJoined = false; 
+            #endif
         }
     }
 
@@ -349,7 +480,7 @@ void updateSOS() {
     };
     const int steps = sizeof(pattern) / sizeof(pattern[0]);
     
-    if (now - lastSOSUpdate > pattern[sosStep]) {
+    if (now - lastSOSUpdate > (unsigned long)pattern[sosStep]) {
         lastSOSUpdate = now;
         sosStep++;
         if (sosStep >= steps) sosStep = 0;
@@ -428,6 +559,89 @@ void fatalError(String message) {
     NVIC_SystemReset();
 }
 
+// --- Buddy Protocol Manager ---
+void sendBuddyPacket() {
+    #if !ENABLE_LORAWAN
+    if (gps.location.isValid()) {
+        String msg = "BUDDY Lat:" + String(gps.location.lat(), 6) + " Lon:" + String(gps.location.lng(), 6);
+        Serial.println("Sending Buddy Update...");
+        radio.standby();
+        transmissionFlag = false;
+        int state = radio.startTransmit(msg);
+        if (state == RADIOLIB_ERR_NONE) {
+            isLoRaTransmitting = true;
+        } else {
+            Serial.print("TX Failed: "); Serial.println(state);
+            radio.startReceive(); // Go back to RX if failed
+        }
+    }
+    #endif
+}
+
+void manageBuddyProtocol() {
+    if (isSOSActive) return;
+    #if ENABLE_LORAWAN
+    return;
+    #endif
+
+    // Fallback if no GPS time: Use simple timer and continuous RX
+    if (!gps.time.isValid()) {
+        if (millis() - lastBuddyTx > BUDDY_TX_INTERVAL) {
+            lastBuddyTx = millis();
+            sendBuddyPacket();
+        }
+        return;
+    }
+
+    #if ENABLE_SMART_POWER
+    int currentSec = gps.time.second();
+    
+    // Define Slots
+    bool txSlot = false;
+    bool rxSlot = false;
+    
+    // Device 0: TX @ :00, :30. RX @ :15, :45 (+/- 2s)
+    // Device 1: TX @ :15, :45. RX @ :00, :30 (+/- 2s)
+    
+    if (BUDDY_DEVICE_ID == 0) {
+        if (currentSec == 0 || currentSec == 30) txSlot = true;
+        if ((currentSec >= 13 && currentSec <= 17) || (currentSec >= 43 && currentSec <= 47)) rxSlot = true;
+    } else {
+        if (currentSec == 15 || currentSec == 45) txSlot = true;
+        if ((currentSec >= 58 || currentSec <= 2) || (currentSec >= 28 && currentSec <= 32)) rxSlot = true;
+    }
+    
+    // TX Logic
+    static int lastTxSec = -1;
+    if (txSlot && currentSec != lastTxSec) {
+        sendBuddyPacket();
+        lastTxSec = currentSec;
+    }
+    
+    // RX/Sleep Logic
+    static bool isListening = false;
+    if (!isLoRaTransmitting) {
+        if (rxSlot) {
+            if (!isListening) {
+                radio.startReceive();
+                isListening = true;
+            }
+        } else {
+            if (isListening) {
+                radio.standby();
+                isListening = false;
+            }
+        }
+    }
+    #else
+    // Standard Logic (Continuous RX)
+    if (millis() - lastBuddyTx > BUDDY_TX_INTERVAL) {
+        lastBuddyTx = millis();
+        sendBuddyPacket();
+    }
+    #endif
+}
+
 void setup() {
     // --- Wake-up Check (Soft-Off Logic) ---
     pinMode(PIN_BUTTON, INPUT_PULLUP);
@@ -486,6 +700,9 @@ void setup() {
     delay(1000);
     Serial.println("\n\n=== Bring Em Home (T114) ===");
     
+    // Load Saved Home
+    hasSavedHome = loadHomePosition(savedHomeLat, savedHomeLon);
+
     pinMode(PIN_BUTTON, INPUT_PULLUP);
     lastInteractionTime = millis();
 
@@ -499,6 +716,26 @@ void setup() {
     Wire.begin();
     Wire.setClock(I2C_SPEED_FAST); // Increase I2C speed to 400kHz to prevent display blocking GPS
     
+    Wire.setClock(I2C_SPEED_FAST); // Increase I2C speed to 400kHz to prevent display blocking GPS
+    
+    // Initialize IMU (BNO085 or BNO055)
+    #if USE_BNO085
+    if (!bno08x.begin_I2C(BNO085_ADDRESS)) {
+        Serial.println("No BNO085 detected!");
+    } else {
+        Serial.println("BNO085 Found!");
+        for (int n = 0; n < bno08x.prodIds.numEntries; n++) {
+            Serial.print("Part "); Serial.print(bno08x.prodIds.entry[n].swPartNumber);
+            Serial.print(": Version "); Serial.print(bno08x.prodIds.entry[n].swVersionMajor);
+            Serial.print("."); Serial.print(bno08x.prodIds.entry[n].swVersionMinor);
+            Serial.print("."); Serial.println(bno08x.prodIds.entry[n].swVersionPatch);
+        }
+        // Enable Rotation Vector (Heading)
+        if (!bno08x.enableReport(SH2_ARVR_STABILIZED_RV, 50000)) { // 50ms interval
+             Serial.println("Could not enable rotation vector");
+        }
+    }
+    #else
     // Initialize BNO055 with Retry Logic
     bool bnoFound = false;
     for(int i=0; i<3; i++) {
@@ -516,6 +753,7 @@ void setup() {
     } else {
         bno.setExtCrystalUse(true);
     }
+    #endif
     
     Serial1.setPins(PIN_GPS_RX, PIN_GPS_TX);
     Serial1.begin(GPS_BAUD);
@@ -527,7 +765,10 @@ void setup() {
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println("LoRa Init Success!");
         radio.setDio1Action(setFlag);
-        radio.sleep();
+        // Start Listening immediately (P2P)
+        #if !ENABLE_LORAWAN
+        radio.startReceive();
+        #endif
     } else {
         Serial.print("LoRa Init Failed, code "); Serial.println(state);
     }
@@ -570,20 +811,64 @@ void loop() {
         transmissionFlag = false;
         if (isLoRaTransmitting) {
             radio.finishTransmit();
-            radio.sleep();
             isLoRaTransmitting = false;
             Serial.println("LoRa TX Finished.");
+            
+            // Resume RX if needed (Smart Power handles this, but fallback needs immediate RX)
+            #if !ENABLE_LORAWAN
+            #if ENABLE_SMART_POWER
+            if (!gps.time.isValid()) radio.startReceive();
+            #else
+            radio.startReceive();
+            #endif
+            #else
+            if (!loraWanJoined) radio.startReceive();
+            #endif
+        } else {
+            // RX Done
+            String str;
+            int state = radio.readData(str);
+            if (state == RADIOLIB_ERR_NONE) {
+                Serial.print("RX: "); Serial.println(str);
+                // Parse Buddy Packet: "BUDDY Lat:48.123 Lon:11.123"
+                if (str.startsWith("BUDDY")) {
+                    int latIdx = str.indexOf("Lat:");
+                    int lonIdx = str.indexOf("Lon:");
+                    if (latIdx > 0 && lonIdx > 0) {
+                        String latStr = str.substring(latIdx + 4, str.indexOf(" ", latIdx));
+                        String lonStr = str.substring(lonIdx + 4);
+                        buddyLat = latStr.toFloat();
+                        buddyLon = lonStr.toFloat();
+                        lastBuddyPacketTime = millis();
+                        hasBuddy = true;
+                        showFeedback("BUDDY FOUND!", "", 2000);
+                        triggerVibration();
+                    }
+                }
+            }
+            // Resume Listening (Smart Power handles this, but fallback needs immediate RX)
+            #if !ENABLE_LORAWAN
+            #if ENABLE_SMART_POWER
+            if (!gps.time.isValid()) radio.startReceive();
+            #else
+            radio.startReceive();
+            #endif
+            #else
+            if (!loraWanJoined) radio.startReceive();
+            #endif
         }
     }
 
     // --- Compass Calibration Check ---
     static unsigned long lastCalibCheck = 0;
     if (millis() - lastCalibCheck > 1000) {
+        #if !USE_BNO085
         uint8_t system, gyro, accel, mag = 0;
         bno.getCalibration(&system, &gyro, &accel, &mag);
         if (!calibSaved && system == 3 && gyro == 3 && accel == 3 && mag == 3) {
             calibSaved = true;
         }
+        #endif
         lastCalibCheck = millis();
     }
 
@@ -635,12 +920,37 @@ void loop() {
     }
 
     // 2. Process Compass
+    #if USE_BNO085
+    if (bno08x.getSensorEvent(&sensorValue)) {
+        if (sensorValue.sensorId == SH2_ARVR_STABILIZED_RV) {
+            // Convert Quaternion to Euler (Heading)
+            float qw = sensorValue.un.arvrStabilizedRV.real;
+            float qx = sensorValue.un.arvrStabilizedRV.i;
+            float qy = sensorValue.un.arvrStabilizedRV.j;
+            float qz = sensorValue.un.arvrStabilizedRV.k;
+            
+            float siny_cosp = 2 * (qw * qz + qx * qy);
+            float cosy_cosp = 1 - 2 * (qy * qy + qz * qz);
+            float yaw = atan2(siny_cosp, cosy_cosp);
+            
+            currentHeading = (yaw * 180.0 / PI);
+            if (currentHeading < 0) currentHeading += 360.0;
+        }
+    }
+    // uint8_t mag = 3; // BNO085 handles calibration internally, assume good
+    #else
     sensors_event_t orientationData;
     bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
-    currentHeading = (int)orientationData.orientation.x;
+    currentHeading = orientationData.orientation.x;
 
     uint8_t sys, gyro, accel, mag = 0;
     bno.getCalibration(&sys, &gyro, &accel, &mag);
+    #endif
+
+    // --- Buddy Protocol (Smart Power / Periodic) ---
+    if (currentMode == MODE_EXPLORE) {
+        manageBuddyProtocol();
+    }
 
     // 3. Button Logic
     bool currentButtonState = digitalRead(PIN_BUTTON);
@@ -653,28 +963,21 @@ void loop() {
     if (currentButtonState == LOW) {
         unsigned long pressDuration = millis() - buttonPressStartTime;
         
-        if (!isLongPressHandled && pressDuration > LONG_PRESS_DURATION) {
-             if (currentMode == MODE_EXPLORE || currentMode == MODE_RETURN) {
+        // Panic Button (3s) -> Return Mode
+        if (!isLongPressHandled && pressDuration > 3000 && pressDuration < 6000) {
+             if (currentMode == MODE_EXPLORE) {
                  isLongPressHandled = true;
-                 powerOff();
+                 currentMode = MODE_RETURN;
+                 showFeedback("RETURN MODE", "PANIC ACTIVATED", FEEDBACK_DURATION_LONG);
+                 triggerVibration(); delay(100); triggerVibration();
+                 if (!isDisplayOn) { u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF); isDisplayOn = true; }
              }
         }
 
-        if (!isLongPressHandled && pressDuration > VERY_LONG_PRESS_DURATION) {
-            if (currentMode == MODE_EXPLORE && gps.location.isValid()) {
-                homeLat = gps.location.lat();
-                homeLon = gps.location.lng();
-                hasHome = true;
-                
-                for(int i=0; i<5; i++) {
-                    pixels.setPixelColor(0, pixels.Color(0, 255, 0)); pixels.show();
-                    digitalWrite(PIN_VIB_MOTOR, HIGH); delay(100);
-                    pixels.clear(); pixels.show();
-                    digitalWrite(PIN_VIB_MOTOR, LOW); delay(100);
-                }
-                showFeedback("HOME RESET!", "", FEEDBACK_DURATION_LONG);
-                lastInteractionTime = millis();
-            }
+        // Power Off (6s)
+        if (!isLongPressHandled && pressDuration > 6000) {
+             isLongPressHandled = true;
+             powerOff();
         }
     }
     
@@ -687,50 +990,74 @@ void loop() {
     lastButtonState = currentButtonState;
 
     if (clickCount > 0 && (millis() - lastClickTime > CLICK_DELAY)) {
-        if (isSOSCountdown) {
-            isSOSCountdown = false;
-            showFeedback("SOS CANCELLED", "", FEEDBACK_DURATION_LONG);
-            clickCount = 0;
-            lastInteractionTime = millis();
-        } else if (clickCount == 1) {
-            if (isDisplayOn) {
-                u8g2.setPowerSave(DISPLAY_POWER_SAVE_ON);
-                isDisplayOn = false;
-            } else {
-                u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF);
-                isDisplayOn = true;
-                lastInteractionTime = millis();
-            }
-        } else if (clickCount == 2) {
-            if (currentMode == MODE_EXPLORE) {
-                currentMode = MODE_RETURN;
-                if (!breadcrumbs.empty() && gps.location.isValid()) {
-                    double minDst = 99999999;
-                    int minIdx = -1;
-                    for(int i=0; i<breadcrumbs.size(); i++) {
-                        double d = gps.distanceBetween(gps.location.lat(), gps.location.lng(), breadcrumbs[i].lat, breadcrumbs[i].lon);
-                        if (d < minDst) { minDst = d; minIdx = i; }
-                    }
-                    targetBreadcrumbIndex = minIdx;
-                } else {
-                    targetBreadcrumbIndex = -1;
-                }
-                showFeedback("RETURN MODE", "", FEEDBACK_DURATION_SHORT);
-            } else {
+        if (currentMode == MODE_CONFIRM_HOME) {
+            if (clickCount == 1) {
+                // YES: Set Home Here
+                homeLat = gps.location.lat();
+                homeLon = gps.location.lng();
+                hasHome = true;
+                saveHomePosition(homeLat, homeLon);
                 currentMode = MODE_EXPLORE;
-                showFeedback("EXPLORE MODE", "", FEEDBACK_DURATION_SHORT);
+                showFeedback("HOME SET!", "Saved to Flash", FEEDBACK_DURATION_LONG);
+            } else if (clickCount == 2) {
+                // NO: Use Saved Home
+                if (hasSavedHome) {
+                    homeLat = savedHomeLat;
+                    homeLon = savedHomeLon;
+                    hasHome = true;
+                    currentMode = MODE_EXPLORE;
+                    showFeedback("OLD HOME", "Loaded from Flash", FEEDBACK_DURATION_LONG);
+                } else {
+                    showFeedback("NO SAVED HOME", "Click 1x to Set", FEEDBACK_DURATION_LONG);
+                }
             }
-            lastInteractionTime = millis();
-        } else if (clickCount == 3) {
-            toggleFlashlight();
-            triggerVibration();
-        } else if (clickCount >= 5) {
-            isSOSCountdown = true;
-            sosCountdownStartTime = millis();
-            if (!isDisplayOn) { u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF); isDisplayOn = true; }
-            triggerVibration();
+            clickCount = 0;
+        } else {
+            if (isSOSCountdown) {
+                isSOSCountdown = false;
+                showFeedback("SOS CANCELLED", "", FEEDBACK_DURATION_LONG);
+                clickCount = 0;
+                lastInteractionTime = millis();
+            } else if (clickCount == 1) {
+                if (isDisplayOn) {
+                    u8g2.setPowerSave(DISPLAY_POWER_SAVE_ON);
+                    isDisplayOn = false;
+                } else {
+                    u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF);
+                    isDisplayOn = true;
+                    lastInteractionTime = millis();
+                }
+            } else if (clickCount == 2) {
+                if (currentMode == MODE_EXPLORE) {
+                    currentMode = MODE_RETURN;
+                    if (!breadcrumbs.empty() && gps.location.isValid()) {
+                        double minDst = 99999999;
+                        int minIdx = -1;
+                        for(size_t i=0; i<breadcrumbs.size(); i++) {
+                            double d = gps.distanceBetween(gps.location.lat(), gps.location.lng(), breadcrumbs[i].lat, breadcrumbs[i].lon);
+                            if (d < minDst) { minDst = d; minIdx = i; }
+                        }
+                        targetBreadcrumbIndex = minIdx;
+                    } else {
+                        targetBreadcrumbIndex = -1;
+                    }
+                    showFeedback("RETURN MODE", "", FEEDBACK_DURATION_SHORT);
+                } else {
+                    currentMode = MODE_EXPLORE;
+                    showFeedback("EXPLORE MODE", "", FEEDBACK_DURATION_SHORT);
+                }
+                lastInteractionTime = millis();
+            } else if (clickCount == 3) {
+                toggleFlashlight();
+                triggerVibration();
+            } else if (clickCount >= 5) {
+                isSOSCountdown = true;
+                sosCountdownStartTime = millis();
+                if (!isDisplayOn) { u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF); isDisplayOn = true; }
+                triggerVibration();
+            }
+            clickCount = 0;
         }
-        clickCount = 0;
     }
 
     if (isSOSCountdown) {
@@ -741,16 +1068,13 @@ void loop() {
         }
     }
 
-    // 4. Auto-Home Logic
-    if (!hasHome && gps.location.isValid()) {
-        homeLat = gps.location.lat();
-        homeLon = gps.location.lng();
-        hasHome = true;
-        Serial.println("Auto-Home Set (First Fix)!");
-        String latStr = "Lat: " + String(homeLat, 4);
-        String lonStr = "Lon: " + String(homeLon, 4);
-        showFeedback("HOME SET!", latStr + "\n" + lonStr, FEEDBACK_DURATION_LONG);
-        lastInteractionTime = millis();
+    // 4. Auto-Home Logic (Replaced by Manual Confirmation)
+    if (!hasHome && gps.location.isValid() && currentMode != MODE_CONFIRM_HOME) {
+        // Instead of auto-setting, we enter Confirmation Mode
+        currentMode = MODE_CONFIRM_HOME;
+        Serial.println("GPS Fix! Asking for Home Confirmation...");
+        triggerVibration();
+        if (!isDisplayOn) { u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF); isDisplayOn = true; }
     }
 
     // 5. Breadcrumb Logic
@@ -928,12 +1252,28 @@ void loop() {
             u8g2.setCursor(8, 12);
             u8g2.print(pct); u8g2.print("%");
 
-            String compStr = "Bad";
-            if (mag == 3) compStr = "Good"; else if (mag == 2) compStr = "Ok"; else if (mag == 1) compStr = "Low";
-            String compDisp = "C:" + compStr;
-            w = u8g2.getStrWidth(compDisp.c_str());
-            u8g2.setCursor((128 - w) / 2, 10);
-            u8g2.print(compDisp);
+            // Buddy Indicator (Top Right)
+            if (hasBuddy && (millis() - lastBuddyPacketTime < 300000)) {
+                u8g2.setCursor(100, 12);
+                u8g2.print("BUDDY");
+            } else {
+                #if !USE_BNO085
+                String compStr = "Bad";
+                if (mag == 3) compStr = "Good"; else if (mag == 2) compStr = "Ok"; else if (mag == 1) compStr = "Low";
+                String compDisp = "C:" + compStr;
+                w = u8g2.getStrWidth(compDisp.c_str());
+                u8g2.setCursor((128 - w) / 2, 10);
+                u8g2.print(compDisp);
+                #else
+                // BNO085 Calibration Check (Accuracy in bits 0-1 of status)
+                uint8_t accuracy = sensorValue.status & 0x03;
+                if (accuracy < 2) {
+                    u8g2.setFont(u8g2_font_5x7_tr);
+                    u8g2.setCursor(50, 12);
+                    u8g2.print("CAL!");
+                }
+                #endif
+            }
 
             int sats = gps.satellites.value();
             int bars = 0;
@@ -944,6 +1284,35 @@ void loop() {
             for (int i=0; i<4; i++) {
                 int h = (i+1) * 2 + 2;
                 if (i < bars) u8g2.drawBox(startX + (i*4), 14-h, 3, h); else u8g2.drawFrame(startX + (i*4), 14-h, 3, h);
+            }
+
+            if (currentMode == MODE_CONFIRM_HOME) {
+                u8g2.setFont(u8g2_font_ncenB10_tr);
+                const char* title = "SET HOME HERE?";
+                w = u8g2.getStrWidth(title);
+                u8g2.setCursor((SCREEN_WIDTH - w) / 2, 30);
+                u8g2.print(title);
+                
+                u8g2.setFont(u8g2_font_6x10_tr);
+                String latStr = "Lat: " + String(gps.location.lat(), 5);
+                String lonStr = "Lon: " + String(gps.location.lng(), 5);
+                w = u8g2.getStrWidth(latStr.c_str());
+                u8g2.setCursor((SCREEN_WIDTH - w) / 2, 50);
+                u8g2.print(latStr);
+                w = u8g2.getStrWidth(lonStr.c_str());
+                u8g2.setCursor((SCREEN_WIDTH - w) / 2, 62);
+                u8g2.print(lonStr);
+                
+                u8g2.drawHLine(0, 75, SCREEN_WIDTH);
+                
+                u8g2.setFont(u8g2_font_ncenB10_tr);
+                u8g2.setCursor(10, 95);
+                u8g2.print("1x: YES");
+                u8g2.setCursor(10, 115);
+                u8g2.print("2x: NO (Load)");
+                
+                u8g2.sendBuffer();
+                return;
             }
 
             if (!gps.location.isValid()) {
@@ -992,12 +1361,52 @@ void loop() {
                 }
             }
 
+            // Smooth Compass
+            double diff = currentHeading - displayedHeading;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+            displayedHeading += diff * 0.15;
+            if (displayedHeading >= 360) displayedHeading -= 360;
+            if (displayedHeading < 0) displayedHeading += 360;
+
             if (showArrow) {
-                int relBearing = (int)bearing - currentHeading;
+                int relBearing = (int)bearing - (int)displayedHeading;
                 if (relBearing < 0) relBearing += 360;
                 int arrowCy = 64;
                 bool showCardinals = (currentMode == MODE_EXPLORE);
                 drawArrow(SCREEN_WIDTH/2, arrowCy, 30, relBearing, showCardinals);
+
+                // Draw Buddy Arrow (Secondary)
+                if (hasBuddy && (millis() - lastBuddyPacketTime < 300000)) {
+                    double buddyBearing = gps.courseTo(gps.location.lat(), gps.location.lng(), buddyLat, buddyLon);
+                    double buddyDist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), buddyLat, buddyLon);
+                    
+                    int relBuddy = (int)buddyBearing - (int)displayedHeading;
+                    if (relBuddy < 0) relBuddy += 360;
+                    
+                    // Draw small hollow triangle for Buddy
+                    float angleRad = (relBuddy - 90) * PI / 180.0;
+                    int r = 25; // Slightly smaller radius
+                    int cx = SCREEN_WIDTH/2;
+                    int cy = arrowCy;
+                    int x1 = cx + r * cos(angleRad);
+                    int y1 = cy + r * sin(angleRad);
+                    int x2 = cx + (r-8) * cos(angleRad + 0.5);
+                    int y2 = cy + (r-8) * sin(angleRad + 0.5);
+                    int x3 = cx + (r-8) * cos(angleRad - 0.5);
+                    int y3 = cy + (r-8) * sin(angleRad - 0.5);
+                    
+                    u8g2.drawLine(x1, y1, x2, y2);
+                    u8g2.drawLine(x2, y2, x3, y3);
+                    u8g2.drawLine(x3, y3, x1, y1);
+                    
+                    // Show Buddy Distance (Top Left)
+                    u8g2.setFont(u8g2_font_5x7_tr);
+                    String bDistStr = "B:" + String((int)buddyDist) + "m";
+                    if (millis() - lastBuddyPacketTime > 60000) bDistStr += "?";
+                    u8g2.setCursor(0, 25);
+                    u8g2.print(bDistStr);
+                }
             } else {
                 if (currentMode == MODE_RETURN && !gps.location.isValid()) {
                     u8g2.setFont(u8g2_font_ncenB10_tr);

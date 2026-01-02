@@ -49,8 +49,13 @@
 
 // LoRa SOS
 #define LORA_TX_INTERVAL    60000   // SOS Beacon Interval (ms) -> 1 Minute
+#define BUDDY_TX_INTERVAL   30000   // Buddy Tracking Interval (ms) -> 30 Seconds
 #define LORA_FREQ           868.0   // Frequency (EU868)
 #define SOS_MSG_TEXT        "SOS!"  // Custom SOS Message Text
+
+// Buddy Tracking Configuration
+#define BUDDY_DEVICE_ID     0       // Set to 0 for Device A, 1 for Device B (Must be different!)
+#define ENABLE_SMART_POWER  1       // Enable GPS-synced RX windows to save power
 
 // Navigation
 #define BREADCRUMB_DIST     100.0   // Distance between breadcrumbs (meters)
@@ -82,8 +87,10 @@
 #define FEEDBACK_DURATION_LONG  2000 // Long feedback message duration (ms)
 
 // Hardware Constants
+#define USE_BNO085          1       // Set to 1 to use BNO085, 0 for BNO055
 #define BNO055_ID           55      // BNO055 Sensor ID
 #define BNO055_ADDRESS      0x28    // BNO055 I2C Address
+#define BNO085_ADDRESS      0x4A    // BNO085 I2C Address (Default 0x4A, Alt 0x4B)
 #define I2C_SPEED_FAST      400000  // I2C Speed (400kHz)
 #define GPS_BAUD            9600    // GPS Serial Baud Rate (Matek M10Q default)
 #define NEOPIXEL_INDEX      0       // Index of the single NeoPixel
@@ -96,6 +103,16 @@
 #define LORA_POWER          22      // Output Power (dBm) - Max for SX1262
 #define LORA_PREAMBLE       8       // Preamble Length
 #define LORA_GAIN           0       // Gain (0 = Auto)
+
+// --- LoRaWAN Configuration (Hybrid Mode) ---
+// Set to 1 to enable LoRaWAN (TTN) + P2P Fallback
+#define ENABLE_LORAWAN      0       
+
+// TTN Keys (MSB Format) - Get these from TTN Console
+#define LORAWAN_JOIN_EUI    0x0000000000000000  // AppEUI
+#define LORAWAN_DEV_EUI     0x0000000000000000  // DeviceEUI
+// AppKey: 16 Bytes, e.g. {0x00, 0x01, ...}
+#define LORAWAN_APP_KEY     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
 // UI Layout
 #define STATUS_BAR_LINE_Y   15      // Y-coordinate of the status bar separator
