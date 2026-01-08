@@ -2,6 +2,8 @@
 
 ## [1.0.2] - 2026-01-08
 ### Changed
+- **Hardware Upgrade**: Recommended GPS module updated to **Quescan M10FD (u-blox M10)**.
+    - Reason: Superior reception in forests (25mm Patch Antenna) and ~60% lower power consumption compared to old L76K.
 - **Hardware Configuration**: Split I2C bus to facilitate assembly.
     - **Bus 1 (Internal)**: OLED Display (Default Pins 16/13).
     - **Bus 2 (External)**: Compass Sensor (BNO085) moved to Header P2 (Pins 28/8).
