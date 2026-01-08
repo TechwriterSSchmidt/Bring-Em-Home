@@ -9,10 +9,17 @@
 // --- Hardware Pins ---
 
 // Heltec Mesh Node T114 (nRF52840) V2
-#define PIN_GPS_RX          37      // P1.05 (MCU RX <- GPS TX)
-#define PIN_GPS_TX          39      // P1.07 (MCU TX -> GPS RX)
-#define PIN_GPS_RST         38      // P1.06 (GPS Reset, Active Low)
-#define PIN_GPS_WAKE        34      // P1.02 (GPS Wakeup)
+// Note: Schematic indicates:
+// GPIO39 = RX_GPS (MCU TX -> GPS RX)
+// GPIO37 = TX_GPS (MCU RX <- GPS TX) - Inferred
+// GPIO38 = RST_GPS
+// GPIO36 = PPS
+// GPIO34 = GPS_WAKE
+
+#define PIN_GPS_RX          37      // P1.05 (MCU RX connected to GPS TX)
+#define PIN_GPS_TX          39      // P1.07 (MCU TX connected to GPS RX)
+#define PIN_GPS_RST         38      // P1.06 (GPS Reset)
+#define PIN_GPS_WAKE        34      // P1.02 (GPS Wake)
 #define PIN_GPS_PPS         36      // P1.04 (GPS PPS)
 
 #define PIN_LORA_NSS        24      // P0.24
@@ -31,8 +38,8 @@
 #define PIN_NEOPIXEL        40      // P1.08 (External WS2812 Data)
 
 // Outputs
-#define PIN_VIB_MOTOR       36      // P1.04 (Vibration Motor)
-#define PIN_FLASHLIGHT      38      // P1.06 (Flashlight LED)
+#define PIN_VIB_MOTOR       -1      // P1.04 is now PPS. Motor disabled/relocated. Was 36.
+#define PIN_FLASHLIGHT      -1      // P1.06 is now GPS RST. Flashlight disabled/relocated. Was 38.
 
 // --- Power Management ---
 #define BATTERY_CAPACITY_MAH 1500   // Battery Capacity in mAh (Adjust to your battery)
