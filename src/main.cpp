@@ -130,7 +130,7 @@ enum MenuState {
   MENU_NONE,
   MENU_MODE_SWITCH, // Explore <-> Return
   MENU_LIGHT,       // Taschenlampe
-  MENU_SOS,         // SOS Starten
+  MENU_SOS,         // SOS Starten (Flashlight Only)
   MENU_POWER_OFF    // Ausschalten
 };
 
@@ -413,7 +413,7 @@ void drawMenuOverlay() {
       u8g2.print("[Hold]");
       break;
     case MENU_SOS:
-      u8g2.print("OPTION: SEND SOS");
+      u8g2.print("OPTION: SOS FLASHER");
       u8g2.setCursor(80, SCREEN_HEIGHT - 10);
       if (digitalRead(PIN_BUTTON) == LOW && currentMenuSelection == MENU_SOS) {
            unsigned long pressedFor = millis() - buttonPressStartTime;
@@ -439,98 +439,13 @@ void updateSOS() {
     
     unsigned long now = millis();
 
-    // --- LoRa Transmission (Every 1 Minute) ---
+    // --- LoRa Transmission (DISABLED) ---
+    /*
     if (now - lastLoRaTx > LORA_TX_INTERVAL) {
         lastLoRaTx = now;
-        int batPct = getBatteryPercent();
-        
-        // Calculate estimated runtime
-        float remainingCap = (float)BATTERY_CAPACITY_MAH * ((float)batPct / 100.0);
-        float runtimeHours = remainingCap / (float)SOS_CURRENT_MA;
-
-        // --- Hybrid Mode Logic ---
-        bool sentViaLoRaWAN = false;
-
-        #if ENABLE_LORAWAN
-        if (!node) {
-             node = new LoRaWANNode(&radio, &EU868);
-        }
-
-        // Try to join if not joined
-        if (!loraWanJoined) {
-            Serial.println("LoRaWAN: Attempting Join...");
-            // Note: beginOTAA is usually called once to set keys, then activateOTAA does the join
-            node->beginOTAA(joinEUI, devEUI, nwkKey, appKey);
-            int state = node->activateOTAA();
-            if (state == RADIOLIB_ERR_NONE) {
-                Serial.println("LoRaWAN: Joined!");
-                loraWanJoined = true;
-            } else {
-                Serial.print("LoRaWAN: Join Failed, code "); Serial.println(state);
-            }
-        }
-
-        if (loraWanJoined) {
-             // Prepare Payload (CayenneLPP style or simple bytes)
-             // 4 bytes Lat, 4 bytes Lon, 1 byte Bat
-             uint8_t payload[9];
-             int32_t lat = gps.location.lat() * 1000000;
-             int32_t lon = gps.location.lng() * 1000000;
-             
-             payload[0] = (lat >> 24) & 0xFF;
-             payload[1] = (lat >> 16) & 0xFF;
-             payload[2] = (lat >> 8) & 0xFF;
-             payload[3] = lat & 0xFF;
-             payload[4] = (lon >> 24) & 0xFF;
-             payload[5] = (lon >> 16) & 0xFF;
-             payload[6] = (lon >> 8) & 0xFF;
-             payload[7] = lon & 0xFF;
-             payload[8] = (uint8_t)batPct;
-
-             Serial.println("LoRaWAN: Sending Uplink...");
-             int state = node->sendReceive(payload, 9);
-             if (state == RADIOLIB_ERR_NONE) {
-                 Serial.println("LoRaWAN: Sent!");
-                 sentViaLoRaWAN = true;
-             } else {
-                 Serial.print("LoRaWAN: Send Failed, code "); Serial.println(state);
-                 // If send fails, maybe we lost coverage. 
-                 // We don't reset loraWanJoined immediately to avoid re-joining loop, 
-                 // but for SOS reliability, we fall back to P2P.
-             }
-        }
-        #endif
-
-        if (!sentViaLoRaWAN) {
-            // Fallback to P2P
-            Serial.println("LoRa P2P: Sending SOS...");
-            
-            // Re-Initialize for P2P (overwrites LoRaWAN config)
-            radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, LORA_SYNC_WORD, LORA_POWER, LORA_PREAMBLE, LORA_GAIN, false);
-            
-            String msg = String(SOS_MSG_TEXT) + " Lat:" + String(gps.location.lat(), 6) + 
-                         " Lon:" + String(gps.location.lng(), 6) + 
-                         " Bat:" + String(batPct) + "%" +
-                         " Est:" + String(runtimeHours, 1) + "h";
-
-            radio.standby();
-            transmissionFlag = false;
-            int state = radio.startTransmit(msg);
-            
-            if (state == RADIOLIB_ERR_NONE) {
-                isLoRaTransmitting = true;
-            } else {
-                radio.sleep();
-            }
-            
-            // Note: If we switched to P2P, the LoRaWAN session in the radio chip is lost.
-            // Next time we try LoRaWAN, we might need to restore it or re-join.
-            // For simplicity in this Hybrid implementation, we will force a re-join next time if ENABLE_LORAWAN is on.
-            #if ENABLE_LORAWAN
-            loraWanJoined = false; 
-            #endif
-        }
+        // ... Code removed for stability ...
     }
+    */
 
     // --- LED Pattern (SOS) ---
     const int DOT = 200;

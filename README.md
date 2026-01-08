@@ -252,7 +252,13 @@ The device has two modes, toggled by a **Double Click** on the button:
 - Range: ±8 Gauss
 - Accuracy: 1-2° heading accuracy
 
-## Future Enhancements
+## Future Enhancements (Planned)
+
+### LoRaWAN SOS Beacon
+An advanced SOS mode is currently in development but disabled in this version.
+- **Concept:** In an emergency, the device will attempt to send GPS coordinates to the LoRaWAN network (The Things Network) for rescue.
+- **Hybrid Mode:** If LoRaWAN fails (no coverage), it would fall back to a P2P High-Power Beacon mode.
+- **Status:** Code is present but commented out for stability testing of the core Buddy features.
 
 - [ ] Add target coordinates via captive portal
 - [ ] Add altitude display
