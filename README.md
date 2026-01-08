@@ -272,24 +272,11 @@ The device has two modes, toggled by a **Double Click** on the button:
 
 ## Future Enhancements (Planned)
 
-### LoRaWAN SOS Beacon
-An advanced SOS mode is currently in development but disabled in this version.
-- **Concept:** In an emergency, the device will attempt to send GPS coordinates to the LoRaWAN network (The Things Network) for rescue.
-- **Hybrid Mode:** If LoRaWAN fails (no coverage), it would fall back to a P2P High-Power Beacon mode.
-- **Status:** Code is present but commented out for stability testing of the core Buddy features.
-
-- [ ] Add target coordinates via captive portal
-- [ ] Add altitude display
-- [ ] Speed and time estimates
-
-## Contributing
-
-Feel free to open issues or submit pull requests for improvements!
+- LoRaWAN SOS Beacon (Hybrid Mode with TTN integration)
+- Add target coordinates via captive portal
+- Add altitude display
+- Speed and time estimates
 
 ## License
 
 This project is open source. Feel free to use and modify as needed.
-
-## Credits
-
-Created to help Emilie find her way home on hikes!
