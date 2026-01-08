@@ -54,7 +54,7 @@
 #define SOS_MSG_TEXT        "SOS!"  // Custom SOS Message Text
 
 // Buddy Tracking Configuration
-#define BUDDY_DEVICE_ID     0       // Set to 0 for Device A, 1 for Device B (Must be different!)
+// #define BUDDY_DEVICE_ID     0       // REMOVED: Now set at runtime and stored in Flash!
 #define ENABLE_SMART_POWER  1       // Enable GPS-synced RX windows to save power
 
 // Navigation

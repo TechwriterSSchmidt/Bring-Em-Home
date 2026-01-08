@@ -10,6 +10,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
+#include <nrf_wdt.h> // Watchdog Timer
 
 using namespace Adafruit_LittleFS_Namespace;
 
@@ -85,6 +86,32 @@ bool loadHomePosition(double &lat, double &lon) {
     }
     return false;
 }
+
+void saveBuddyID(int id) {
+    InternalFS.begin();
+    File file = InternalFS.open("/id.txt", FILE_O_WRITE);
+    if (file) {
+        file.seek(0);
+        file.print(String(id));
+        file.close();
+        Serial.println("Buddy ID Saved: " + String(id));
+    }
+}
+
+int loadBuddyID() {
+    InternalFS.begin();
+    File file = InternalFS.open("/id.txt", FILE_O_READ);
+    if (file) {
+        String content = file.readString();
+        file.close();
+        if (content.length() > 0) {
+            int id = content.toInt();
+            Serial.println("Buddy ID Loaded: " + String(id));
+            return id;
+        }
+    }
+    return -1; // Not set
+}
 #if USE_BNO085
 Adafruit_BNO08x bno08x(PIN_LORA_RST); // Reset pin not strictly needed if tied to MCU reset, but good practice
 sh2_SensorValue_t sensorValue;
@@ -97,13 +124,15 @@ SPIClass& loraSPI = SPI;
 
 SX1262 radio = new Module(PIN_LORA_NSS, PIN_LORA_DIO1, PIN_LORA_RST, PIN_LORA_BUSY);
 
-// LoRaWAN Globals (Hybrid Mode)
+// LoRaWAN Globals (Hybrid Mode - DISABLED)
+/*
 LoRaWANNode* node = nullptr;
 bool loraWanJoined = false;
 uint64_t joinEUI = LORAWAN_JOIN_EUI;
 uint64_t devEUI = LORAWAN_DEV_EUI;
 uint8_t appKey[] = LORAWAN_APP_KEY;
-uint8_t nwkKey[] = LORAWAN_APP_KEY; // For LoRaWAN 1.0.x, NwkKey is usually same as AppKey
+uint8_t nwkKey[] = LORAWAN_APP_KEY; 
+*/
 
 // Dummy NeoPixel for now as it's disabled in config
 #if defined(PIN_NEOPIXEL) && (PIN_NEOPIXEL >= 0)
@@ -122,7 +151,8 @@ U8G2_SH1107_128X128_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 enum AppMode {
     MODE_EXPLORE,
     MODE_RETURN,
-    MODE_CONFIRM_HOME
+    MODE_CONFIRM_HOME,
+    MODE_SET_ID  // New Mode for ID Selection
 };
 
 // --- MENU DEFINITONS ---
@@ -140,6 +170,9 @@ const unsigned long MENU_TIMEOUT = 4000; // Menü schließt automatisch nach 4s
 const unsigned long LONG_PRESS_THRESHOLD = 800; // ms für Bestätigung
 const unsigned long SOS_CONFIRM_TIME = 10000; // 10 Sekunden halten für SOS aus Menü
 AppMode currentMode = MODE_CONFIRM_HOME; // Start in Confirm Mode (Wait for GPS)
+
+// Config Data
+int deviceID = -1; // -1 = Not Set
 
 // Navigation Data
 double homeLat = 0.0;
@@ -290,8 +323,21 @@ int getBatteryPercent() {
     if (millis() - lastBatCheck > interval || lastBatCheck == 0) {
         float voltage = readBatteryVoltage();
         
-        // Simple linear mapping for LiPo (3.3V to 4.2V)
-        int pct = (int)((voltage - 3.3) * 100 / (4.2 - 3.3));
+        // Conservative LiPo Mapping (Piecewise Linear)
+        // Helps avoid "sudden death" at low voltages
+        int pct = 0;
+        if (voltage >= 4.05) {
+            pct = 100;
+        } else if (voltage >= 3.85) { // 3.85 - 4.05 -> 70% - 100%
+            pct = 70 + (int)((voltage - 3.85) / (4.05 - 3.85) * 30);
+        } else if (voltage >= 3.70) { // 3.70 - 3.85 -> 20% - 70%
+            pct = 20 + (int)((voltage - 3.70) / (3.85 - 3.70) * 50);
+        } else if (voltage >= 3.50) { // 3.50 - 3.70 -> 5% - 20%
+            pct = 5 + (int)((voltage - 3.50) / (3.70 - 3.50) * 15);
+        } else { // 3.30 - 3.50 -> 0% - 5%
+            pct = (int)((voltage - 3.30) / (3.50 - 3.30) * 5);
+        }
+
         if (pct > 100) pct = 100;
         if (pct < 0) pct = 0;
         
