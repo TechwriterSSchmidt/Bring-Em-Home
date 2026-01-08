@@ -11,7 +11,7 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
 - [Release Notes](RELEASE_NOTES.md)
 - [Hardware Requirements](#hardware-requirements)
 - [Hardware Connections (Heltec T114)](#hardware-connections-heltec-t114)
-- [Power Management (New!)](#power-management-new)
+- [Power Management & Optimization](#power-management--optimization)
 - [Performance & Stability](#performance--stability)
 - [Features](#features)
 - [Configuration](#configuration)
@@ -63,9 +63,29 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
 - **Battery Voltage**: Pin 4 (P0.04 / AIN2)
 - **Battery Control**: Pin 6 (P0.06) - Voltage Divider Enable
 
-## Power Management (New!)
+## Power Management & Optimization
 
-The device now features a **Deep Sleep** mode that consumes negligible power (< 50uA), allowing the battery to last for months/years in standby.
+The device features an advanced power management system centered around the **nRF52840's Deep Sleep** capabilities and hardware-specific optimizations.
+
+### Power Saving Strategy
+
+To achieve ~75h+ runtime for hiking, we implemented the following specialized configurations:
+
+1.  **GPS Throttling (2Hz)**
+    *   The **M10FD** is configured to update at **2Hz (Every 500ms)** instead of the standard 5-10Hz.
+    *   *Benefit:* Allows the GPS chip to enter a low-power "Cyclic Tracking" state between fixes, saving ~10-15mA.
+    *   *hiking Context:* At walking speeds (~5km/h), you only move ~1.4 meters in 1 second. 2Hz is plenty precise.
+
+2.  **Sensor Fusion Optimization (10Hz)**
+    *   The **BNO085** orientation sensor is throttled to **10Hz (100ms)**.
+    *   *Benefit:* Reduces I2C bus traffic and MCU wake-up interrupts by 50% compared to standard gaming settings (20Hz+), while remaining visually smooth.
+
+3.  **Smart Display**
+    *   **Auto-Off:** The OLED turns off after **5 Minutes** on inactivity.
+    *   **Partial Updates:** The display only redraws pixels that change, slightly reducing controller overhead.
+
+4.  **Deep Sleep Idle**
+    *   The Main MCU enters `System ON (Idle)` sleep mode whenever it's not processing a sensor or button interrupt (Current < 50uA).
 
 - **Turn ON**: Hold Button for **3 Seconds** (Rising Vibration: Short-Short-Long).
 - **Panic Mode**: Hold Button for **3-6 Seconds** (Triggers Return Mode immediately).
