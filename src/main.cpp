@@ -540,7 +540,13 @@ void fatalError(String message) {
 void sendBuddyPacket() {
     #if !ENABLE_LORAWAN
     if (gps.location.isValid()) {
-        String msg = "BUDDY Lat:" + String(gps.location.lat(), 6) + " Lon:" + String(gps.location.lng(), 6);
+        // Status Flag: 0=Explore, 1=Return (Help needed / Going home)
+        int statusFlag = (currentMode == MODE_RETURN) ? 1 : 0;
+        
+        String msg = "BUDDY Lat:" + String(gps.location.lat(), 6) + 
+                     " Lon:" + String(gps.location.lng(), 6) +
+                     " M:" + String(statusFlag); // M: for Mode
+
         Serial.println("Sending Buddy Update...");
         radio.standby();
         transmissionFlag = false;
@@ -807,19 +813,46 @@ void loop() {
             int state = radio.readData(str);
             if (state == RADIOLIB_ERR_NONE) {
                 Serial.print("RX: "); Serial.println(str);
-                // Parse Buddy Packet: "BUDDY Lat:48.123 Lon:11.123"
+                // Parse Buddy Packet: "BUDDY Lat:48.123 Lon:11.123 M:1"
                 if (str.startsWith("BUDDY")) {
                     int latIdx = str.indexOf("Lat:");
                     int lonIdx = str.indexOf("Lon:");
+                    int modeIdx = str.indexOf("M:");
+
                     if (latIdx > 0 && lonIdx > 0) {
                         String latStr = str.substring(latIdx + 4, str.indexOf(" ", latIdx));
-                        String lonStr = str.substring(lonIdx + 4);
+                        String lonStr = "";
+                        
+                        int endLon = (modeIdx > 0) ? modeIdx - 1 : str.length(); // End of Lon is Space before M: or end
+                        lonStr = str.substring(lonIdx + 4, endLon);
+                        
                         buddyLat = latStr.toFloat();
                         buddyLon = lonStr.toFloat();
-                        lastBuddyPacketTime = millis();
+                        
+                        // Check Remote Mode
+                        bool remoteIsReturning = false;
+                        if (modeIdx > 0) {
+                             int m = str.substring(modeIdx + 2).toInt();
+                             if (m == 1) remoteIsReturning = true;
+                        }
+
+                        unsigned long now = millis();
+                        bool isNewContact = (now - lastBuddyPacketTime > 300000); // 5 Minutes Timeout
+                        lastBuddyPacketTime = now;
                         hasBuddy = true;
-                        showFeedback("BUDDY FOUND!", "", 2000);
-                        triggerVibration();
+
+                        // Vibration Logic
+                        if (isNewContact) {
+                            // First contact after lost signal -> Short Vibe
+                            showFeedback("BUDDY CONNECTED", "", 2000);
+                            triggerVibration(); 
+                        } else if (remoteIsReturning) {
+                             // Buddy wants to go home! -> Alert every update or throttle?
+                             // Let's alert. It's important.
+                             showFeedback("BUDDY RETURNING", "Follow Arrow", 2000);
+                             triggerVibration();
+                        }
+                        // Else: Silent update
                     }
                 }
             }
