@@ -12,6 +12,18 @@ Your tip motivates me to continue developing cool stuff for the DIY community. T
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/D1D01HVT9A)
 
+## Table of Contents
+- [Quick Start Guide](Docs/QUICK_REFERENCE.md) 🚀
+- [Release Notes](RELEASE_NOTES.md) 📝
+- [Hardware Requirements](#hardware-requirements)
+- [Hardware Connections (Heltec T114)](#hardware-connections-heltec-t114)
+- [Power Management (New!)](#power-management-new)
+- [Performance & Stability](#performance--stability)
+- [Features](#features)
+- [Configuration](#configuration)
+- [User Interface](#user-interface)
+- [Power & Battery Life](#-power--battery-life)
+
 ## Hardware Requirements
 
 - **Heltec Mesh Node T114 (nRF52840)**
@@ -30,16 +42,27 @@ Your tip motivates me to continue developing cool stuff for the DIY community. T
 
 ## Hardware Connections (Heltec T114)
 
-### I2C Bus (Shared: BNO055 Compass & SH1107 OLED)
+### I2C Bus 1 (Internal: OLED Display)
 - **SDA**: Pin 16 (P0.16)
 - **SCL**: Pin 13 (P0.13)
-- **VCC**: 3.3V (Controlled by VEXT)
+
+### I2C Bus 2 (External: BNO085 Compass - Header P2)
+- **SDA**: Pin 28 (P0.28)
+- **SCL**: Pin 8 (P0.08)
+- **VCC**: 3.3V (Connect to VEXT or 3.3V)
 - **GND**: GND
+
+### GPS Module
+- **RX**: Pin 37 (P1.05)
+- **TX**: Pin 39 (P1.07)
+- **RST**: Pin 38 (P1.06)
+- **WAKE**: Pin 34 (P1.02)
+- **PPS**: Pin 36 (P1.04)
 
 ### Peripherals
 - **Button**: Pin 42 (P1.10) - Active Low
-- **Vibration Motor**: Pin 36 (P1.04)
-- **Flashlight LED**: Pin 38 (P1.06)
+- **Vibration Motor**: *Disabled (Conflict with GPS PPS)*
+- **Flashlight LED**: *Disabled (Conflict with GPS RST)*
 - **WS2812 LED**: Pin 40 (P1.08) - External Status LED
 - **Battery Voltage**: Pin 4 (P0.04 / AIN2)
 - **Battery Control**: Pin 6 (P0.06) - Voltage Divider Enable

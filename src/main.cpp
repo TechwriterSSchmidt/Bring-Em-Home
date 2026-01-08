@@ -118,7 +118,7 @@ int loadBuddyID() {
 Adafruit_BNO08x bno08x(-1); 
 sh2_SensorValue_t sensorValue;
 #else
-Adafruit_BNO055 bno = Adafruit_BNO055(BNO055_ID, BNO055_ADDRESS);
+Adafruit_BNO055 bno = Adafruit_BNO055(BNO055_ID, BNO055_ADDRESS, &Wire1);
 #endif
 
 // Use default SPI instance for nRF52
@@ -801,13 +801,16 @@ void setup() {
 
     Wire.setPins(PIN_I2C_SDA, PIN_I2C_SCL);
     Wire.begin();
-    Wire.setClock(I2C_SPEED_FAST); // Increase I2C speed to 400kHz to prevent display blocking GPS
-    
-    Wire.setClock(I2C_SPEED_FAST); // Increase I2C speed to 400kHz to prevent display blocking GPS
+    Wire.setClock(I2C_SPEED_FAST); // Increase I2C speed to 400kHz
+
+    // Init External I2C for Sensor (P2 Header)
+    Wire1.setPins(PIN_EXT_SDA, PIN_EXT_SCL);
+    Wire1.begin();
+    Wire1.setClock(I2C_SPEED_FAST);
     
     // Initialize IMU (BNO085 or BNO055)
     #if USE_BNO085
-    if (!bno08x.begin_I2C(BNO085_ADDRESS)) {
+    if (!bno08x.begin_I2C(BNO085_ADDRESS, &Wire1)) {
         Serial.println("No BNO085 detected!");
         hasCompass = false;
     } else {

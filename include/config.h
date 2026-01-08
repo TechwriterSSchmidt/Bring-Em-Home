@@ -30,8 +30,13 @@
 #define PIN_LORA_MISO       23      // P0.23
 #define PIN_LORA_MOSI       22      // P0.22
 #define PIN_VEXT            21      // P0.21 (Power Control)
-#define PIN_I2C_SDA         16      // P0.16
-#define PIN_I2C_SCL         13      // P0.13
+#define PIN_I2C_SDA         16      // P0.16 (Internal OLED)
+#define PIN_I2C_SCL         13      // P0.13 (Internal OLED)
+
+// External I2C (BNO085 on P2 Header)
+#define PIN_EXT_SDA         28      // P0.28
+#define PIN_EXT_SCL         8       // P0.08
+
 #define PIN_BUTTON          42      // P1.10 (User Button)
 #define PIN_BAT_ADC         4       // P0.04 (AIN2 - Battery Voltage)
 #define PIN_BAT_READ_CTRL   6       // P0.06 (Battery Divider Control)
