@@ -51,6 +51,7 @@ int sosStep = 0;
 int lastValidBatteryPct = 50; // Default to 50% to avoid 0% division errors on boot
 float estimatedChargeTimeHours = 0; 
 unsigned long chargeStartTime = 0;
+bool hasCompass = false; // Flag to indicate if compass is present
 
 // Objects
 TinyGPSPlus gps;
@@ -113,7 +114,8 @@ int loadBuddyID() {
     return -1; // Not set
 }
 #if USE_BNO085
-Adafruit_BNO08x bno08x(PIN_LORA_RST); // Reset pin not strictly needed if tied to MCU reset, but good practice
+// Pins: -1 = Reset Pin not used (or not connected to MCU)
+Adafruit_BNO08x bno08x(-1); 
 sh2_SensorValue_t sensorValue;
 #else
 Adafruit_BNO055 bno = Adafruit_BNO055(BNO055_ID, BNO055_ADDRESS);
@@ -727,6 +729,16 @@ void setup() {
     pinMode(PIN_VEXT, OUTPUT);
     digitalWrite(PIN_VEXT, HIGH);
     
+    // GPS Power Management (V2 Board)
+    #if defined(PIN_GPS_RST)
+    pinMode(PIN_GPS_RST, OUTPUT);
+    digitalWrite(PIN_GPS_RST, HIGH); // Release Reset
+    #endif
+    #if defined(PIN_GPS_WAKE)
+    pinMode(PIN_GPS_WAKE, OUTPUT);
+    digitalWrite(PIN_GPS_WAKE, HIGH); // Wake Up
+    #endif
+
     // Init Battery Read Control
     pinMode(PIN_BAT_READ_CTRL, OUTPUT);
     digitalWrite(PIN_BAT_READ_CTRL, LOW);
@@ -797,8 +809,10 @@ void setup() {
     #if USE_BNO085
     if (!bno08x.begin_I2C(BNO085_ADDRESS)) {
         Serial.println("No BNO085 detected!");
+        hasCompass = false;
     } else {
         Serial.println("BNO085 Found!");
+        hasCompass = true;
         for (int n = 0; n < bno08x.prodIds.numEntries; n++) {
             Serial.print("Part "); Serial.print(bno08x.prodIds.entry[n].swPartNumber);
             Serial.print(": Version "); Serial.print(bno08x.prodIds.entry[n].swVersionMajor);
@@ -824,8 +838,10 @@ void setup() {
     
     if (!bnoFound) {
         Serial.println("No BNO055 detected!");
+        hasCompass = false;
         // fatalError("BNO055 Error!"); // Optional: Don't crash if compass fails, just run without
     } else {
+        hasCompass = true;
         bno.setExtCrystalUse(true);
     }
     #endif
@@ -836,7 +852,8 @@ void setup() {
     loraSPI.setPins(PIN_LORA_MISO, PIN_LORA_SCK, PIN_LORA_MOSI);
     loraSPI.begin();
 
-    int state = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, LORA_SYNC_WORD, LORA_POWER, LORA_PREAMBLE, LORA_GAIN, false);
+    // Init Radio with correct TCXO Voltage (1.6V)
+    int state = radio.begin(LORA_FREQ, LORA_BW, LORA_SF, LORA_CR, LORA_SYNC_WORD, LORA_POWER, LORA_PREAMBLE, LORA_TCXO_VOLTAGE, false);
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println("LoRa Init Success!");
         radio.setDio1Action(setFlag);
@@ -882,6 +899,26 @@ void loop() {
     // 0. Process GPS OFTEN (Before heavy tasks)
     while (Serial1.available()) {
         gps.encode(Serial1.read());
+    }
+
+    // --- GPS Debug Output (Every 2s) ---
+    static unsigned long lastGpsDebug = 0;
+    if (millis() - lastGpsDebug > 2000) {
+        lastGpsDebug = millis();
+        Serial.print("[GPS] Sats: "); Serial.print(gps.satellites.value());
+        Serial.print(" | HDOP: "); Serial.print(gps.hdop.hdop()); // < 2.0 is good
+        
+        if (gps.location.isValid()) {
+            Serial.print(" | Fix: "); 
+            Serial.print(gps.location.lat(), 6);
+            Serial.print(", ");
+            Serial.print(gps.location.lng(), 6);
+        } else {
+            Serial.print(" | No Fix");
+        }
+        
+        // Check if we are receiving ANY data
+        Serial.print(" | Chars: "); Serial.println(gps.charsProcessed());
     }
 
     // --- LoRa Async Handler ---
@@ -966,7 +1003,7 @@ void loop() {
 
     // --- Compass Calibration Check ---
     static unsigned long lastCalibCheck = 0;
-    if (millis() - lastCalibCheck > 1000) {
+    if (hasCompass && (millis() - lastCalibCheck > 1000)) {
         #if !USE_BNO085
         uint8_t system, gyro, accel, mag = 0;
         bno.getCalibration(&system, &gyro, &accel, &mag);
@@ -1025,32 +1062,34 @@ void loop() {
     }
 
     // 2. Process Compass
-    #if USE_BNO085
-    if (bno08x.getSensorEvent(&sensorValue)) {
-        if (sensorValue.sensorId == SH2_ARVR_STABILIZED_RV) {
-            // Convert Quaternion to Euler (Heading)
-            float qw = sensorValue.un.arvrStabilizedRV.real;
-            float qx = sensorValue.un.arvrStabilizedRV.i;
-            float qy = sensorValue.un.arvrStabilizedRV.j;
-            float qz = sensorValue.un.arvrStabilizedRV.k;
-            
-            float siny_cosp = 2 * (qw * qz + qx * qy);
-            float cosy_cosp = 1 - 2 * (qy * qy + qz * qz);
-            float yaw = atan2(siny_cosp, cosy_cosp);
-            
-            currentHeading = (yaw * 180.0 / PI);
-            if (currentHeading < 0) currentHeading += 360.0;
+    if (hasCompass) {
+        #if USE_BNO085
+        if (bno08x.getSensorEvent(&sensorValue)) {
+            if (sensorValue.sensorId == SH2_ARVR_STABILIZED_RV) {
+                // Convert Quaternion to Euler (Heading)
+                float qw = sensorValue.un.arvrStabilizedRV.real;
+                float qx = sensorValue.un.arvrStabilizedRV.i;
+                float qy = sensorValue.un.arvrStabilizedRV.j;
+                float qz = sensorValue.un.arvrStabilizedRV.k;
+                
+                float siny_cosp = 2 * (qw * qz + qx * qy);
+                float cosy_cosp = 1 - 2 * (qy * qy + qz * qz);
+                float yaw = atan2(siny_cosp, cosy_cosp);
+                
+                currentHeading = (yaw * 180.0 / PI);
+                if (currentHeading < 0) currentHeading += 360.0;
+            }
         }
-    }
-    // uint8_t mag = 3; // BNO085 handles calibration internally, assume good
-    #else
-    sensors_event_t orientationData;
-    bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
-    currentHeading = orientationData.orientation.x;
+        // uint8_t mag = 3; // BNO085 handles calibration internally, assume good
+        #else
+        sensors_event_t orientationData;
+        bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
+        currentHeading = orientationData.orientation.x;
 
-    uint8_t sys, gyro, accel, mag = 0;
-    bno.getCalibration(&sys, &gyro, &accel, &mag);
-    #endif
+        uint8_t sys, gyro, accel, mag = 0;
+        bno.getCalibration(&sys, &gyro, &accel, &mag);
+        #endif
+    }
 
     // --- Buddy Protocol (Smart Power / Periodic) ---
     if (currentMode == MODE_EXPLORE) {

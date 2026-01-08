@@ -1,5 +1,11 @@
 # Release Notes - Bring Em Home
 
+## [1.0.1] - 2026-01-08
+### Fixed
+- **LoRa Init Failure**: Corrected `PIN_LORA_RST` from 25 to 18 to match Heltec Mesh Node T114 V2 hardware/firmware definitions.
+- **Pin Conflict**: Removed `PIN_LORA_RST` from BNO085 constructor.
+- **Watchdog**: Added WDT (10s) via nRF52 register access.
+
 ## Version 1.0.0 (Safety Update)
 **Date:** January 2, 2026
 **Status:** Stable / Safety Features Implemented

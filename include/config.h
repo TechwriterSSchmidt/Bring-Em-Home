@@ -8,12 +8,16 @@
 
 // --- Hardware Pins ---
 
-// Heltec Mesh Node T114 (nRF52840)
-#define PIN_GPS_RX          39      // P1.07
-#define PIN_GPS_TX          37      // P1.05
+// Heltec Mesh Node T114 (nRF52840) V2
+#define PIN_GPS_RX          37      // P1.05 (MCU RX <- GPS TX)
+#define PIN_GPS_TX          39      // P1.07 (MCU TX -> GPS RX)
+#define PIN_GPS_RST         38      // P1.06 (GPS Reset, Active Low)
+#define PIN_GPS_WAKE        34      // P1.02 (GPS Wakeup)
+#define PIN_GPS_PPS         36      // P1.04 (GPS PPS)
+
 #define PIN_LORA_NSS        24      // P0.24
 #define PIN_LORA_DIO1       20      // P0.20
-#define PIN_LORA_RST        25      // P0.25
+#define PIN_LORA_RST        18      // P0.18 (Corrected for T114 V2)
 #define PIN_LORA_BUSY       17      // P0.17
 #define PIN_LORA_SCK        19      // P0.19
 #define PIN_LORA_MISO       23      // P0.23
@@ -102,7 +106,7 @@
 #define LORA_SYNC_WORD      0x12    // Sync Word (Private Network)
 #define LORA_POWER          22      // Output Power (dBm) - Max for SX1262
 #define LORA_PREAMBLE       8       // Preamble Length
-#define LORA_GAIN           0       // Gain (0 = Auto)
+#define LORA_TCXO_VOLTAGE   1.6     // TCXO Voltage (1.6V for Heltec T114)
 
 // --- LoRaWAN Configuration (Hybrid Mode) ---
 // Set to 1 to enable LoRaWAN (TTN) + P2P Fallback
