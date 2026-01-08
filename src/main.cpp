@@ -821,7 +821,7 @@ void setup() {
             // Serial.print("Part "); ...
         }
         // Enable Rotation Vector (Heading)
-        if (!bno08x.enableReport(SH2_ARVR_STABILIZED_RV, 50000)) { // 50ms interval
+        if (!bno08x.enableReport(SH2_ARVR_STABILIZED_RV, 100000)) { // 100ms interval (10Hz)
              Serial.println("Could not enable rotation vector");
         }
     }
@@ -847,6 +847,18 @@ void setup() {
     
     Serial1.setPins(PIN_GPS_RX, PIN_GPS_TX);
     Serial1.begin(GPS_BAUD);
+
+    // --- GPS CONFIGURATION (U-Blox M10) ---
+    // Set Update Rate to 2Hz (500ms) for better responsiveness while hiking/biking
+    // Payload: 500ms (0x01F4), 1 cycle, GPS Time
+    uint8_t ubxRate2Hz[] = { 
+        0xB5, 0x62, 0x06, 0x08, 0x06, 0x00, 
+        0xF4, 0x01, 0x01, 0x00, 0x01, 0x00, 
+        0x0B, 0x77 
+    };
+    delay(100); // Allow GPS to boot UART
+    Serial1.write(ubxRate2Hz, sizeof(ubxRate2Hz));
+    Serial.println("GPS configured to 2Hz");
 
     // Optional: Send UBX config commands here if M10FD needs setup (e.g. rate, constellations)
     // Most M10 modules default to Auto-Baud or 9600/38400.

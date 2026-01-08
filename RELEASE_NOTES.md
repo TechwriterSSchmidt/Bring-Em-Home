@@ -7,6 +7,9 @@
 - **Hardware Configuration**: Split I2C bus to facilitate assembly.
     - **Bus 1 (Internal)**: OLED Display (Default Pins 16/13).
     - **Bus 2 (External)**: Compass Sensor (BNO085) moved to Header P2 (Pins 28/8).
+- **Power Optimization**: 
+    - **GPS**: Update rate set to **2Hz (500ms)** (balanced for hiking/biking) to allow CPU sleep.
+    - **IMU (Compass)**: Update rate reduced to **10Hz (100ms)** to minimize I2C interrupts and power draw.
 - **GPS Pin Mapping**: Corrected GPS pin definitions based on T114 V2 schematic analysis (RX=37, TX=39, RST=38, WAKE=34).
 - **Peripherals**: Temporarily disabled Vibration Motor and Flashlight due to pin conflicts with GPS.
 

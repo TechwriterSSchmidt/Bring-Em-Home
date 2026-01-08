@@ -75,15 +75,17 @@ The device now features a **Deep Sleep** mode that consumes negligible power (< 
 
 ### Estimated Battery Life (1500mAh LiPo)
 
+Estimates with optimized refresh rates (GPS 2Hz, IMU 10Hz):
+
 | Mode | Current Draw | Estimated Runtime |
 |------|--------------|-------------------|
-| **Hiking (Display Auto-Off)** | ~20 mA | ~75 Hours |
-| **Hiking (Display Always On)** | ~40 mA | ~38 Hours |
-| **Buddy Mode (Smart Sync)** | ~18 mA | ~80 Hours |
+| **Hiking (Display Auto-Off)** | ~18 mA | **~83 Hours** |
+| **Hiking (Display Always On)** | ~35 mA | **~42 Hours** |
+| **Buddy Mode (Smart Sync)** | ~16 mA | **~90 Hours** |
 | **SOS Mode (High Power)** | ~220 mA (Peak) | ~8 Hours |
 | **Deep Sleep** | < 0.05 mA | > 1 Year |
 
-*Note: The new u-blox M10 GPS reduces power consumption by ~40% compared to legacy modules.*
+*Note: The new u-blox M10 GPS (Configured to 2Hz) and BNO085 (Configured to 10Hz) significantly reduce power consumption.*
 
 ## Performance & Stability
 
