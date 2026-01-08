@@ -69,29 +69,15 @@ The device features an advanced power management system centered around the **nR
 
 ### Power Saving Strategy
 
-To achieve ~75h+ runtime for hiking, we implemented the following specialized configurations:
+To achieve **~75h+ runtime** (Eco Mode), we utilize specific hardware optimizations:
 
-1.  **GPS Throttling (2Hz)**
-    *   The **M10FD** is configured to update at **2Hz (Every 500ms)** instead of the standard 5-10Hz.
-    *   *Benefit:* Allows the GPS chip to enter a low-power "Cyclic Tracking" state between fixes, saving ~10-15mA.
-    *   *hiking Context:* At walking speeds (~5km/h), you only move ~1.4 meters in 1 second. 2Hz is plenty precise.
-
-2.  **Sensor Fusion Optimization (10Hz)**
-    *   The **BNO085** orientation sensor is throttled to **10Hz (100ms)**.
-    *   *Benefit:* Reduces I2C bus traffic and MCU wake-up interrupts by 50% compared to standard gaming settings (20Hz+), while remaining visually smooth.
-
-3.  **Smart Display**
-    *   **Auto-Off:** The OLED turns off after **5 Minutes** on inactivity.
-    *   **Partial Updates:** The display only redraws pixels that change, slightly reducing controller overhead.
-
-4.  **Deep Sleep Idle**
-    *   The Main MCU enters `System ON (Idle)` sleep mode whenever it's not processing a sensor or button interrupt (Current < 50uA).
-
-- **Turn ON**: Hold Button for **3 Seconds** (Rising Vibration: Short-Short-Long).
-- **Panic Mode**: Hold Button for **3-6 Seconds** (Triggers Return Mode immediately).
-- **Turn OFF**: Hold Button for **> 6 Seconds** (Falling Vibration: Long-Short-Short).
-- **Wake Up**: Single click wakes the device from sleep (if not fully powered down).
-- **Charging Detection**: Checks for charger connection every 1s for the first 5 minutes after boot, then stops to save power.
+| Feature | Configuration | Optimization Benefit |
+| :--- | :--- | :--- |
+| **GPS Throttling** | **2 Hz** (500ms) | Powers down the M10FD RF stage between fixes (Cyclic Tracking). Savings: **~15mA**. |
+| **Sensor Fusion** | **10 Hz** (100ms) | Reduces I2C interrupts on the nRF52 by 50%, allowing longer MCU sleep cycles. |
+| **Buddy Sync** | **GPS Time-Slotted** | Synchronizes LoRa Rx windows with GPS time. The radio sleeps ~90% of the time and only wakes when a partner packet is expected. |
+| **Smart Display** | **Auto-Off (5m)** | Automatically creates deep-sleep windows for the OLED (saving ~20mA) when not actively navigating. |
+| **MCU Sleep** | **Idle Mode** | nRF52840 enters ultra-low power state (<50uA) whenever no interrupts are pending. |
 
 ### Estimated Battery Life (1500mAh LiPo)
 
