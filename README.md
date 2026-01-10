@@ -34,6 +34,7 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
   - Vibration Motor
   - Flashlight LED
   - External Button
+  - WS2812 RGB LED (Status Heartbeat)
 
 ## Hardware Connections (Heltec T114)
 
@@ -108,22 +109,26 @@ Estimates with optimized refresh rates (GPS 2Hz, IMU 10Hz):
 - Save home position manually with button press (Long Press > 10s)
 - **Smart Breadcrumbs**: Records path points distance-based AND on significant direction changes (to capture turns).
 - **Smart GPS Filter**: Ignores GPS drift when standing still or moving too fast (>12km/h).
-- **Safety First**: SOS Beacon with LoRa transmission, Morse code flasher, and battery runtime estimation.
+- **Safety First**: Battery runtime estimation and Panic Button.
 - **Panic Button**: Long press (3s) immediately activates Return Mode to guide you home.
-- **Manual Home Confirmation**: Prevents accidental home resets. On boot, you choose to set a new home or load the previous one (e.g., your car).
+- **Manual Home Confirmation**: Prevents accidental home resets.
 - **Calibration Warning**: Displays "CAL!" if the compass needs calibration.
 - **Charging Detection**: Automatically detects wall charger and shows charging progress.
 - **Return Mode**: Backtracking mode to retrace steps.
-- **Buddy Tracking**: Two-way location sharing with a partner device (Distance + Direction).
+- **Buddy Tracking**: Two-way location sharing with a partner device.
 - Calculate distance to home/waypoint
 - Digital compass (North Arrow)
 - Visual navigation arrow (Target Arrow)
 - Persistent storage of home position
 - Low power consumption (Auto-off)
 
+## Future Roadmap / Planned Features
+- **SOS Beacon / Flashlight**: Currently disabled to reduce high power consumption (~200mA). Planned to be reintroduced with a miniature DC-SSR (Solid State Relay) for better efficiency.
+- **LoRaWAN Integration**: Infrastructure present but currently disabled.
+
 ## Configuration
 
-You can customize the device settings in `include/config.h`. This includes hardware pins, timeouts, and **User Data** for the SOS message.
+You can customize the device settings in `include/config.h`. This includes hardware pins, timeouts, and **Active Hardware Modules**.
 
 ### Default Settings Table
 

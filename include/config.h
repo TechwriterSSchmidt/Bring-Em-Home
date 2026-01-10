@@ -6,6 +6,15 @@
 // --- System Configuration ---
 #define SERIAL_BAUD         115200  // Serial Monitor Baud Rate
 
+// --- Hardware Module Configuration ---
+// Set to 1 to enable, 0 to disable connected hardware
+#define HAS_COMPASS_MODULE  1       // 1 = Mounted, 0 = None
+#define USE_BNO085          1       // 1 = BNO085 (Precision), 0 = BNO055 (Standard)
+#define HAS_VIB_MOTOR       0       // 1 = Vibration Motor connected
+#define HAS_FLASHLIGHT      0       // 0 = Disabled (Power Saving / AC-SSR Future Upgrade)
+#define HAS_SOS_LED         0       // 0 = Disabled (Power Saving / AC-SSR Future Upgrade)
+#define HAS_RGB_LED         1       // 1 = NeoPixel/WS2812 connected
+
 // --- Hardware Pins ---
 
 // Heltec Mesh Node T114 (nRF52840) V2
@@ -102,8 +111,8 @@
 #define FEEDBACK_DURATION_SHORT 1000 // Short feedback message duration (ms)
 #define FEEDBACK_DURATION_LONG  2000 // Long feedback message duration (ms)
 
-// Hardware Constants
-#define USE_BNO085          1       // Set to 1 to use BNO085, 0 for BNO055
+// Hardware Constants (I2C Addresses & IDs)
+// #define USE_BNO085          1       // Moved to Hardware Module Config above
 #define BNO055_ID           55      // BNO055 Sensor ID
 #define BNO055_ADDRESS      0x28    // BNO055 I2C Address
 #define BNO085_ADDRESS      0x4A    // BNO085 I2C Address (Default 0x4A, Alt 0x4B)

@@ -42,12 +42,13 @@
 |--------|---------|----------|
 | **Wake Display** | 1 Click | Turn Screen ON |
 | **Open Menu** | 1 Click (When ON) | Open Options Menu (Bottom of Screen) |
-| **Navigate Menu** | 1 Click | Cycle options: Mode -> Light -> Power Off -> SOS |
+| **Navigate Menu** | 1 Click | Cycle options: Mode -> Power Off |
 | **Select Option** | Hold Button | Execute selected menu option |
 | **Panic Mode** | Hold 3s (No Menu) | **IMMEDIATE** Return Mode (Safety Override) |
-| **SOS** | Menu -> SOS -> Hold 10s | Start SOS Beacon (Requires explicit hold) |
 | **Confirm Home** | 1x / 2x Clicks | Only at Startup: 1x=New Home, 2x=Load Saved |
 | **Setup Mode** | Hold 15s | Enter Device ID Selection (Set ID 1-5) |
+
+*Note: Flashlight and SOS Menu options are currently disabled for power optimization.*
 
 ## ⚙️ Device Setup (Buddy Mode)
 
@@ -66,6 +67,13 @@ To use the Buddy Tracker, each device must have a unique ID (1-5).
 - **Charging**: Connect USB-C. External LED (WS2812) pulses Green.
 - **Full**: LED solid Green.
 - **Low Battery**: LED flashes Yellow (< 10%).
+
+## 💡 Status LED (Screen Off)
+
+Even when the display is off to save power, the RGB LED gives feedback:
+- **Green Flash (every 4s)**: Explorer Mode is active, GPS is fixed, Breadcrumbs are recording.
+- **Red Pulse**: Searching for GPS satellites.
+- **Yellow Flash**: Low Battery Warning.
 
 ## 📊 Technical Info
 

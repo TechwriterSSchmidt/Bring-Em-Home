@@ -25,6 +25,9 @@ using namespace Adafruit_LittleFS_Namespace;
 #include <RadioLib.h>
 #include <Adafruit_NeoPixel.h>
 
+// Define second I2C bus for External Compass
+TwoWire Wire1(NRF_TWIM1, NRF_TWIS1, SPIM1_SPIS1_TWIM1_TWIS1_SPI1_TWI1_IRQn, PIN_EXT_SDA, PIN_EXT_SCL);
+
 // Display dimensions
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 128
@@ -245,14 +248,16 @@ void triggerVibration() {
 void toggleFlashlight() {
     isFlashlightOn = !isFlashlightOn;
     isSOSActive = false; 
-    digitalWrite(PIN_FLASHLIGHT, isFlashlightOn ? HIGH : LOW);
+    // digitalWrite(PIN_FLASHLIGHT, isFlashlightOn ? HIGH : LOW);
+    // TODO: Future upgrade: Miniature DC-SSR for power saving. LED removed for now.
 }
 
 void toggleSOS() {
     isSOSActive = !isSOSActive;
     isFlashlightOn = false; 
     if (!isSOSActive) {
-        digitalWrite(PIN_FLASHLIGHT, LOW);
+        // digitalWrite(PIN_FLASHLIGHT, LOW);
+        // TODO: Future upgrade: Miniature DC-SSR for power saving. LED removed for now.
         radio.sleep(); 
         Serial.println("SOS Deactivated. LoRa Sleeping.");
     } else {
@@ -278,7 +283,8 @@ void powerOff() {
     
     // 3. Sensors OFF
     digitalWrite(PIN_VEXT, LOW);
-    digitalWrite(PIN_FLASHLIGHT, LOW);
+    // digitalWrite(PIN_FLASHLIGHT, LOW); // Flashlight removed/disabled logic
+    // TODO: Future upgrade: Miniature DC-SSR for power saving. LED removed for now.
 
     // 4. LoRa Sleep
     radio.sleep();
@@ -429,9 +435,29 @@ void updateStatusLED() {
             lastPulseTime = millis();
         }
     } else {
-        // GPS Fix acquired -> LED off to save power
-        pixels.clear();
-        pixels.show();
+        // GPS Fix acquired
+        
+        // Explorer Mode Heartbeat (Green Blink every 4s) to indicate recording without display
+        if (currentMode == MODE_EXPLORE) {
+            static unsigned long lastHeartbeat = 0;
+            unsigned long now = millis();
+            
+            // Blink ON
+            if (now - lastHeartbeat > 4000) {
+                lastHeartbeat = now;
+                pixels.setPixelColor(0, pixels.Color(0, LED_BRIGHTNESS, 0)); // Green
+                pixels.show();
+            } 
+            // Blink OFF after 50ms (Short blip for power saving)
+            else if (now - lastHeartbeat > 50) { 
+                pixels.clear();
+                pixels.show();
+            }
+        } else {
+            // Other modes (Return/Confirm) -> LED off to save power
+            pixels.clear();
+            pixels.show();
+        }
     }
 }
 
@@ -509,7 +535,8 @@ void updateSOS() {
         lastSOSUpdate = now;
         sosStep++;
         if (sosStep >= steps) sosStep = 0;
-        digitalWrite(PIN_FLASHLIGHT, (sosStep % 2 == 0) ? HIGH : LOW);
+        // digitalWrite(PIN_FLASHLIGHT, (sosStep % 2 == 0) ? HIGH : LOW);
+        // TODO: Future upgrade: Miniature DC-SSR for power saving. LED removed for now.
     }
 }
 
@@ -796,8 +823,9 @@ void setup() {
     pinMode(PIN_VIB_MOTOR, OUTPUT);
     digitalWrite(PIN_VIB_MOTOR, LOW);
 
-    pinMode(PIN_FLASHLIGHT, OUTPUT);
-    digitalWrite(PIN_FLASHLIGHT, LOW);
+    // pinMode(PIN_FLASHLIGHT, OUTPUT);
+    // digitalWrite(PIN_FLASHLIGHT, LOW);
+    // TODO: Future upgrade: Miniature DC-SSR for power saving. LED removed for now.
 
     Wire.setPins(PIN_I2C_SDA, PIN_I2C_SCL);
     Wire.begin();
