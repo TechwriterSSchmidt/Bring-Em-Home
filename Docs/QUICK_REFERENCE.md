@@ -2,9 +2,10 @@
 
 ## 🚀 Quick Start (First Use)
 
-1. **Power On**: Hold Button for **3 Seconds** (Vibration: Short-Short-Long).
+1. **Power On**: Hold Button for **3 Seconds**.
 2. **Wait for GPS**: Go outdoors and wait for satellite lock (1-5 min).
    - *Screen says: "Searching SATs"*
+   - *Status LED*: Red Pulse.
 3. **Confirm Home**: When GPS is found, the screen asks "SET HOME?".
    - **1 Click**: Set **NEW** Home (Current Location).
    - **2 Clicks**: Load **SAVED** Home (e.g., Car).
@@ -15,14 +16,14 @@
 - **Display**: Shows Compass, Speed, and Distance from Home.
 - **Buddy Tracking**: Shows a hollow arrow pointing to your partner if they are nearby.
 - **Function**: Records "Breadcrumbs" (Waypoints) automatically as you walk.
-- **Action**: Enjoy your hike!
+- **Feedback**: Green LED Flash (every 4s) indicates recording.
 
 ### 2. Return Mode (Backtrack)
 - **Activate**: Menu (1 Click) -> Select 'SWITCH MODE' (Hold).
 - **OR**: Panic Button (Hold 3s) for emergency return.
 - **Display**: Shows Arrow pointing to the next Breadcrumb (or Home).
 - **Function**: Guides you back along your exact path.
-- **Feedback**: Vibration when reaching a waypoint.
+- **Feedback**: Visual LED Flash when reaching a waypoint.
 
 ## 📱 Display Guide (OLED)
 
@@ -48,14 +49,13 @@
 | **Confirm Home** | 1x / 2x Clicks | Only at Startup: 1x=New Home, 2x=Load Saved |
 | **Setup Mode** | Hold 15s | Enter Device ID Selection (Set ID 1-5) |
 
-*Note: Flashlight and SOS Menu options are currently disabled for power optimization.*
+*Note: Flashlight and SOS Menu options are removed (Hardware disabled).*
 
 ## ⚙️ Device Setup (Buddy Mode)
 
 To use the Buddy Tracker, each device must have a unique ID (1-5).
 
 1. **Enter Setup**: With the device ON, hold the button for **15 seconds** until "SETUP DEVICE ID" appears.
-   - *Tip: Ignore the "Panic Mode" vibration at 3s, keep holding.*
 2. **Change ID**: Short click to cycle numbers (1, 2, 3, 4, 5).
 3. **Save**: Long press to save the ID and return to Explore Mode.
 

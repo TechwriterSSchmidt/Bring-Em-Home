@@ -31,10 +31,9 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
   - High-precision VR-grade absolute orientation sensor (Recommended).
   - *Note: The M10FD often includes a QMC5883L compass, but the BNO085 is vastly superior for navigation due to sensor fusion.*
 - **Peripherals (Optional)**
-  - Vibration Motor
-  - Flashlight LED
   - External Button
   - WS2812 RGB LED (Status Heartbeat)
+  - *Note: Vibration Motor, Flashlight and SOS-LED are disabled and removed from this version.*
 
 ## Hardware Connections (Heltec T114)
 
@@ -58,11 +57,11 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
 
 ### Peripherals
 - **Button**: Pin 42 (P1.10) - Active Low
-- **Vibration Motor**: *Disabled (Conflict with GPS PPS)*
-- **Flashlight LED**: *Disabled (Conflict with GPS RST)*
 - **WS2812 LED**: Pin 40 (P1.08) - External Status LED
 - **Battery Voltage**: Pin 4 (P0.04 / AIN2)
 - **Battery Control**: Pin 6 (P0.06) - Voltage Divider Enable
+- **Vibration Motor**: *Removed (No Space)*
+- **Flashlight LED**: *Removed (Conflict/Power)*
 
 ## Power Management & Optimization
 
@@ -89,14 +88,13 @@ Estimates with optimized refresh rates (GPS 2Hz, IMU 10Hz):
 | **Hiking (Display Auto-Off)** | ~18 mA | **~83 Hours** |
 | **Hiking (Display Always On)** | ~35 mA | **~42 Hours** |
 | **Buddy Mode (Smart Sync)** | ~16 mA | **~90 Hours** |
-| **SOS Mode (High Power)** | ~220 mA (Peak) | ~8 Hours |
 | **Deep Sleep** | < 0.05 mA | > 1 Year |
 
 *Note: The new u-blox M10 GPS (Configured to 2Hz) and BNO085 (Configured to 10Hz) significantly reduce power consumption.*
 
 ## Performance & Stability
 
-- **Non-Blocking Logic**: All critical systems (LEDs, Vibration, LoRa) use non-blocking state machines to ensure the main loop never freezes.
+- **Non-Blocking Logic**: All critical systems (LEDs, LoRa) use non-blocking state machines to ensure the main loop never freezes.
 - **10Hz Display Limit**: The screen refresh rate is capped at 10Hz (100ms) to prioritize GPS data processing and prevent buffer overflows.
 - **Sensor Startup**: Optimized boot sequence ensures sensors (BNO055, GPS) are fully powered before initialization.
 
@@ -121,9 +119,10 @@ Estimates with optimized refresh rates (GPS 2Hz, IMU 10Hz):
 - Visual navigation arrow (Target Arrow)
 - Persistent storage of home position
 - Low power consumption (Auto-off)
+- **Visual Feedback**: RGB LED flashes for confirmations and warnings (replacing vibration).
 
 ## Future Roadmap / Planned Features
-- **SOS Beacon / Flashlight**: Currently disabled to reduce high power consumption (~200mA). Planned to be reintroduced with a miniature DC-SSR (Solid State Relay) for better efficiency.
+- **SOS Beacon / Flashlight**: Currently disabled and removed. Planned to be reintroduced with a miniature DC-SSR (Solid State Relay) for better efficiency later.
 - **LoRaWAN Integration**: Infrastructure present but currently disabled.
 
 ## Configuration
@@ -193,13 +192,7 @@ Displayed when no GPS fix is available. Shows "Searching SATs" with an animated 
 ![Searching Screen](Screens/mockup_searching.png)
 
 ### 5. SOS Mode
-Activated by 5 rapid clicks. 
-1.  **Countdown**: A 5-second countdown allows you to cancel accidental triggers.
-2.  **Active**: Displays a huge countdown to the next LoRa transmission.
-3.  **Runtime**: Shows estimated battery runtime based on current consumption.
-
-![SOS Countdown](Screens/mockup_sos_countdown.png)
-![SOS Screen](Screens/mockup_sos.png)
+*Feature currently disabled / removed.*
 
 ### 6. Charging Mode
 Displayed when connected to a charger (Voltage > 4.4V). 
@@ -228,8 +221,7 @@ The device is optimized for long hikes using the ultra-low power **nRF52840** MC
 
 ### Low Battery Warning
 When the battery drops below 10%:
-- **Vibration**: The device vibrates 3 times immediately upon reaching 10%.
-- **LED Signal**: The small status LED flashes yellow every 10 seconds.
+- **LED Signal**: The Status LED flashes yellow every 10 seconds.
 - **Display**: The battery icon in the top-left corner appears empty.
 
 ## Software Setup

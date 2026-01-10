@@ -33,13 +33,13 @@ Connection Diagram:
                                     │  - WAKE: P1.02 (Pin 34)     │
                                     │  - PPS: P1.04 (Pin 36)      │
                                     │                             │
-                                    │ Peripherals:                │
+                                    │ Peipherals:                 │
                                     │  - Button: P1.10 (Pin 42)   │
                                     │  - WS2812 LED: P1.08 (Pin 40│
                                     │  - Battery ADC: P0.04 (Pin 4│
                                     │  - Bat Ctrl: P0.06 (Pin 6)  │
                                     │                             │
-                                    │ Disabled (Conflict w/ GPS): │
+                                    │ Not Mounted / No Space:     │
                                     │  - Vibration Motor          │
                                     │  - Flashlight LED           │
                                     └─────────────────────────────┘

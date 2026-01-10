@@ -164,8 +164,6 @@ enum AppMode {
 enum MenuState {
   MENU_NONE,
   MENU_MODE_SWITCH, // Explore <-> Return
-  MENU_LIGHT,       // Taschenlampe
-  MENU_SOS,         // SOS Starten (Flashlight Only)
   MENU_POWER_OFF    // Ausschalten
 };
 
@@ -240,9 +238,17 @@ void showFeedback(String title, String sub, int duration) {
 }
 
 void triggerVibration() {
+    #if HAS_VIB_MOTOR
     digitalWrite(PIN_VIB_MOTOR, HIGH);
     vibrationStartTime = millis();
     isVibrating = true;
+    #else
+    // Visual Feedback via RGB LED (White Flash) if Motor Missing
+    pixels.setPixelColor(0, pixels.Color(100, 100, 100)); // White
+    pixels.show();
+    vibrationStartTime = millis();
+    isVibrating = true; // Recycle logic to turn LED off after delay
+    #endif
 }
 
 void toggleFlashlight() {
@@ -270,13 +276,23 @@ void toggleSOS() {
 void powerOff() {
     Serial.println("Entering Deep Sleep...");
     
-    // 1. Feedback (Falling Pattern: Long - Short - Short)
+    // 1. Feedback (Falling Pattern or LED Fade)
+    #if HAS_VIB_MOTOR
     digitalWrite(PIN_VIB_MOTOR, HIGH); delay(500);
     digitalWrite(PIN_VIB_MOTOR, LOW);  delay(200);
     digitalWrite(PIN_VIB_MOTOR, HIGH); delay(200);
     digitalWrite(PIN_VIB_MOTOR, LOW);  delay(200);
     digitalWrite(PIN_VIB_MOTOR, HIGH); delay(200);
     digitalWrite(PIN_VIB_MOTOR, LOW);
+    #else
+    // LED Fade Out
+    for(int i=150; i>=0; i-=5) {
+        pixels.setPixelColor(0, pixels.Color(0, 0, i)); // Blue Fade
+        pixels.show();
+        delay(10);
+    }
+    pixels.clear(); pixels.show();
+    #endif
 
     // 2. Display OFF
     u8g2.setPowerSave(DISPLAY_POWER_SAVE_ON);
@@ -479,24 +495,6 @@ void drawMenuOverlay() {
       u8g2.print("OPTION: SWITCH MODE");
       u8g2.setCursor(90, SCREEN_HEIGHT - 10);
       u8g2.print("[Hold]");
-      break;
-    case MENU_LIGHT:
-      u8g2.print("OPTION: LIGHT");
-      u8g2.print(isFlashlightOn ? " OFF" : " ON");
-      u8g2.setCursor(90, SCREEN_HEIGHT - 10);
-      u8g2.print("[Hold]");
-      break;
-    case MENU_SOS:
-      u8g2.print("OPTION: SOS FLASHER");
-      u8g2.setCursor(80, SCREEN_HEIGHT - 10);
-      if (digitalRead(PIN_BUTTON) == LOW && currentMenuSelection == MENU_SOS) {
-           unsigned long pressedFor = millis() - buttonPressStartTime;
-           int remain = 10 - (pressedFor / 1000);
-           if (remain < 0) remain = 0;
-           u8g2.print("HOLD: " + String(remain));
-      } else {
-           u8g2.print("[Hold 10s]");
-      }
       break;
     case MENU_POWER_OFF:
       u8g2.print("OPTION: POWER OFF");
@@ -1176,16 +1174,6 @@ void loop() {
                  lastInteractionTime = now;
              }
         }
-        
-        // SOS COUNTDOWN (Hold 10s if Menu=SOS)
-        if (currentMenuSelection == MENU_SOS && duration > SOS_CONFIRM_TIME) {
-             if (!isSOSActive && !isLongPressHandled) { // Trigger once
-                 isLongPressHandled = true;
-                 if (!isSOSActive) toggleSOS();
-                 currentMenuSelection = MENU_NONE;
-                 triggerVibration(); delay(500); triggerVibration();
-             }
-        }
     }
 
     // Button Released (Rising Edge)
@@ -1225,12 +1213,10 @@ void loop() {
                          if (currentMenuSelection == MENU_NONE) {
                              currentMenuSelection = MENU_MODE_SWITCH;
                          } else {
-                             // Cycle (MODE -> LIGHT -> OFF -> SOS)
+                             // Cycle (MODE -> POWER_OFF -> EXIT)
                              switch(currentMenuSelection) {
-                                 case MENU_MODE_SWITCH: currentMenuSelection = MENU_LIGHT; break;
-                                 case MENU_LIGHT: currentMenuSelection = MENU_POWER_OFF; break;
-                                 case MENU_POWER_OFF: currentMenuSelection = MENU_SOS; break;
-                                 case MENU_SOS: currentMenuSelection = MENU_NONE; break;
+                                 case MENU_MODE_SWITCH: currentMenuSelection = MENU_POWER_OFF; break;
+                                 case MENU_POWER_OFF: currentMenuSelection = MENU_NONE; break;
                                  default: currentMenuSelection = MENU_NONE;
                              }
                          }
@@ -1253,16 +1239,6 @@ void loop() {
                                 }
                                 triggerVibration();
                                 currentMenuSelection = MENU_NONE;
-                                break;
-                             case MENU_LIGHT:
-                                toggleFlashlight();
-                                triggerVibration();
-                                currentMenuSelection = MENU_NONE;
-                                break;
-                             case MENU_SOS:
-                                // Warn user
-                                showFeedback("HOLD TO ACTIVATE", "10 SECONDS", 2000);
-                                triggerVibration();
                                 break;
                              case MENU_POWER_OFF:
                                 powerOff();

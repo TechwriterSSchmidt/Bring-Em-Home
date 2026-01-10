@@ -10,9 +10,9 @@
 // Set to 1 to enable, 0 to disable connected hardware
 #define HAS_COMPASS_MODULE  1       // 1 = Mounted, 0 = None
 #define USE_BNO085          1       // 1 = BNO085 (Precision), 0 = BNO055 (Standard)
-#define HAS_VIB_MOTOR       0       // 1 = Vibration Motor connected
-#define HAS_FLASHLIGHT      0       // 0 = Disabled (Power Saving / AC-SSR Future Upgrade)
-#define HAS_SOS_LED         0       // 0 = Disabled (Power Saving / AC-SSR Future Upgrade)
+#define HAS_VIB_MOTOR       0       // 0 = Disabled (No space in housing)
+#define HAS_FLASHLIGHT      0       // 0 = Disabled
+#define HAS_SOS_LED         0       // 0 = Disabled
 #define HAS_RGB_LED         1       // 1 = NeoPixel/WS2812 connected
 
 // --- Hardware Pins ---
