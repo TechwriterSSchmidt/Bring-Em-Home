@@ -26,21 +26,26 @@ Connection Diagram:
     │  VCC -> VEXT / 3.3V       │◄──┤ P0.21 (VEXT Power Control)  │
     └───────────────────────────┘   │                             │
                                     │                             │
-                                    │ GPS Module (UART):          │
-                                    │  - RX: P1.05 (Pin 37)       │
-                                    │  - TX: P1.07 (Pin 39)       │
-                                    │  - RST: P1.06 (Pin 38)      │
-                                    │  - WAKE: P1.02 (Pin 34)     │
-                                    │  - PPS: P1.04 (Pin 36)      │
+                                    │ GPS Module (Header P2):     │
+                                    │  - RX: P0.08 (Pin 8)        │
+                                    │  - TX: P0.07 (Pin 7)        │
                                     │                             │
-                                    │ Peipherals:                 │
-                                    │  - Button: P1.10 (Pin 42)   │
-                                    │  - WS2812 LED: P1.08 (Pin 40│
+                                    │ IMU (BNO085) - Alt Pins:    │
+                                    │  - SDA: P0.28 (Pin 28)      │
+                                    │  - SCL: P0.30 (Pin 30)      │
+                                    │                             │
+                                    │ OLED (GPS Connector Pins):  │
+                                    │  - SDA: P1.05 (Pin 37)      │
+                                    │  - SCL: P1.07 (Pin 39)      │
+                                    │                             │
+                                    │ Peripherals:                │
+                                    │  - Button: P0.31 (Pin 31)   │
+                                    │  - VIB Motor: P0.13 (Pin 13)│
+                                    │  - WS2812 LED: P0.29 (Pin 29│
                                     │  - Battery ADC: P0.04 (Pin 4│
                                     │  - Bat Ctrl: P0.06 (Pin 6)  │
                                     │                             │
                                     │ Not Mounted / No Space:     │
-                                    │  - Vibration Motor          │
                                     │  - Flashlight LED           │
                                     └─────────────────────────────┘
 

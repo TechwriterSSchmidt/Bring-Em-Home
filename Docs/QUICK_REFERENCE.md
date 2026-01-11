@@ -2,7 +2,7 @@
 
 ## 🚀 Quick Start (First Use)
 
-1. **Power On**: Hold Button for **3 Seconds**.
+1. **Power On**: Hold Button for **3 Seconds** (Vibration: Short-Short-Long).
 2. **Wait for GPS**: Go outdoors and wait for satellite lock (1-5 min).
    - *Screen says: "Searching SATs"*
    - *Status LED*: Red Pulse.
@@ -23,7 +23,7 @@
 - **OR**: Panic Button (Hold 3s) for emergency return.
 - **Display**: Shows Arrow pointing to the next Breadcrumb (or Home).
 - **Function**: Guides you back along your exact path.
-- **Feedback**: Visual LED Flash when reaching a waypoint.
+- **Feedback**: Vibration when reaching a waypoint.
 
 ## 📱 Display Guide (OLED)
 

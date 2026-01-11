@@ -10,7 +10,7 @@
 // Set to 1 to enable, 0 to disable connected hardware
 #define HAS_COMPASS_MODULE  1       // 1 = Mounted, 0 = None
 #define USE_BNO085          1       // 1 = BNO085 (Precision), 0 = BNO055 (Standard)
-#define HAS_VIB_MOTOR       0       // 0 = Disabled (No space in housing)
+#define HAS_VIB_MOTOR       1       // 1 = Vibration Motor Enabled 
 #define HAS_FLASHLIGHT      0       // 0 = Disabled
 #define HAS_SOS_LED         0       // 0 = Disabled
 #define HAS_RGB_LED         1       // 1 = NeoPixel/WS2812 connected
@@ -25,11 +25,14 @@
 // GPIO36 = PPS
 // GPIO34 = GPS_WAKE
 
-#define PIN_GPS_RX          37      // P1.05 (MCU RX connected to GPS TX)
-#define PIN_GPS_TX          39      // P1.07 (MCU TX connected to GPS RX)
-#define PIN_GPS_RST         38      // P1.06 (GPS Reset)
-#define PIN_GPS_WAKE        34      // P1.02 (GPS Wake)
-#define PIN_GPS_PPS         36      // P1.04 (GPS PPS)
+// --- Swapped: Display (I2C) on GPS Header ---
+#define PIN_I2C_SDA         37      // P1.05 (I2C SDA - Was GPS RX)
+#define PIN_I2C_SCL         39      // P1.07 (I2C SCL - Was GPS TX)
+
+// --- GPS Extras (Disabled) ---
+#define PIN_GPS_RST         -1      // Disabled
+#define PIN_GPS_WAKE        -1      // Disabled
+#define PIN_GPS_PPS         -1      // Disabled
 
 #define PIN_LORA_NSS        24      // P0.24
 #define PIN_LORA_DIO1       20      // P0.20
@@ -39,21 +42,22 @@
 #define PIN_LORA_MISO       23      // P0.23
 #define PIN_LORA_MOSI       22      // P0.22
 #define PIN_VEXT            21      // P0.21 (Power Control)
-#define PIN_I2C_SDA         16      // P0.16 (Internal OLED)
-#define PIN_I2C_SCL         13      // P0.13 (Internal OLED)
+// --- Swapped: GPS on P2 Header (GPIO 8/7) ---
+#define PIN_GPS_RX          8       // P0.08 (GPS RX)
+#define PIN_GPS_TX          7       // P0.07 (GPS TX)
 
-// External I2C (BNO085 on P2 Header)
+// External I2C (BNO085 on GPIO 28/30)
 #define PIN_EXT_SDA         28      // P0.28
-#define PIN_EXT_SCL         8       // P0.08
+#define PIN_EXT_SCL         30      // P0.30
 
-#define PIN_BUTTON          42      // P1.10 (User Button)
+#define PIN_BUTTON          31      // P0.31 (User Button)
 #define PIN_BAT_ADC         4       // P0.04 (AIN2 - Battery Voltage)
 #define PIN_BAT_READ_CTRL   6       // P0.06 (Battery Divider Control)
-#define PIN_NEOPIXEL        40      // P1.08 (External WS2812 Data)
+#define PIN_NEOPIXEL        29      // P0.29 (External WS2812 Data)
 
 // Outputs
-#define PIN_VIB_MOTOR       -1      // P1.04 is now PPS. Motor disabled/relocated. Was 36.
-#define PIN_FLASHLIGHT      -1      // P1.06 is now GPS RST. Flashlight disabled/relocated. Was 38.
+#define PIN_VIB_MOTOR       13      // P0.13 (Vibration Motor)
+#define PIN_FLASHLIGHT      -1      // Disabled
 
 // --- Power Management ---
 #define BATTERY_CAPACITY_MAH 1500   // Battery Capacity in mAh (Adjust to your battery)

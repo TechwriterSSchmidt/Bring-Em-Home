@@ -755,11 +755,11 @@ void setup() {
     digitalWrite(PIN_VEXT, HIGH);
     
     // GPS Power Management (V2 Board)
-    #if defined(PIN_GPS_RST)
+    #if defined(PIN_GPS_RST) && (PIN_GPS_RST >= 0)
     pinMode(PIN_GPS_RST, OUTPUT);
     digitalWrite(PIN_GPS_RST, HIGH); // Release Reset
     #endif
-    #if defined(PIN_GPS_WAKE)
+    #if defined(PIN_GPS_WAKE) && (PIN_GPS_WAKE >= 0)
     pinMode(PIN_GPS_WAKE, OUTPUT);
     digitalWrite(PIN_GPS_WAKE, HIGH); // Wake Up
     #endif

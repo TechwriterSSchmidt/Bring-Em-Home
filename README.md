@@ -33,35 +33,33 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
 - **Peripherals (Optional)**
   - External Button
   - WS2812 RGB LED (Status Heartbeat)
-  - *Note: Vibration Motor, Flashlight and SOS-LED are disabled and removed from this version.*
+  - Vibration Motor
+  - *Note: Flashlight and SOS-LED are disabled and removed from this version.*
 
 ## Hardware Connections (Heltec T114)
 
 ### I2C Bus 1 (Internal: OLED Display)
-- **SDA**: Pin 16 (P0.16)
-- **SCL**: Pin 13 (P0.13)
+- **SDA**: Pin 37 (P1.05) - *Use GPS Connector*
+- **SCL**: Pin 39 (P1.07) - *Use GPS Connector*
 
-### I2C Bus 2 (External: BNO085 Compass - Header P2)
+### I2C Bus 2 (External: BNO085 Compass)
 - **SDA**: Pin 28 (P0.28)
-- **SCL**: Pin 8 (P0.08)
+- **SCL**: Pin 30 (P0.30)
 - **VCC**: 3.3V (Connect to VEXT or 3.3V)
 - **GND**: GND
 
-### GPS Module
-- **RX**: Pin 37 (P1.05)
-- **TX**: Pin 39 (P1.07)
-- **RST**: Pin 38 (P1.06)
-- **WAKE**: Pin 34 (P1.02)
-- **PPS**: Pin 36 (P1.04)
-- *Note: Check if your M10 module allows 115200 or 9600 baud. Default config is 9600.*
+### GPS Module (Header P2)
+- **RX**: Pin 8 (P0.08)
+- **TX**: Pin 7 (P0.07)
+- **RST**: Disconnected
+- **WAKE**: Disconnected
+- **PPS**: Disconnected
 
 ### Peripherals
-- **Button**: Pin 42 (P1.10) - Active Low
-- **WS2812 LED**: Pin 40 (P1.08) - External Status LED
-- **Battery Voltage**: Pin 4 (P0.04 / AIN2)
-- **Battery Control**: Pin 6 (P0.06) - Voltage Divider Enable
-- **Vibration Motor**: *Removed (No Space)*
+- **Button**: Pin 31 (P0.31) - Active Low
+- **Vibration Motor**: Pin 13 (P0.13) - Active High
 - **Flashlight LED**: *Removed (Conflict/Power)*
+- **WS2812 LED**: Pin 29 (P0.29) - External Status LED
 
 ## Power Management & Optimization
 
