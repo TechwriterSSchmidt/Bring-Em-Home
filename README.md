@@ -1,10 +1,10 @@
 # Bring Em Home 🏠
 
-A dedicated GPS navigation device designed to guide Emilie safely back to her starting location on every hike using GPS-breadcrumbs. It also serves as a LoRa-based buddy finder (already implemented) and SOS-flasher (future implementation planned) in case she needs help.
+A dedicated GPS navigation device designed to help Emilie safely find her way back to her starting location on every hike using GPS-breadcrumbs. It also serves as a LoRa-based buddy finder (already implemented) and SOS-flasher (future implementation planned) in case she needs help.
 
 ## Overview
 
-This device uses GPS and compass sensors to help navigate back to a saved "home" position. Perfect for hikers who want peace of mind knowing they can always find their way back to their starting point.
+This device uses GPS and compass sensors to find its way back to a stored “starting position.” It is ideal for hikers who want to be sure they can always find their way back to their starting point, e.g., in poor visibility, in pitch darkness, or if they get lost in bad weather.
 
 ## Table of Contents
 - [Quick Start Guide](Docs/QUICK_REFERENCE.md)
