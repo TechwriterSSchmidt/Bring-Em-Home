@@ -17,6 +17,7 @@ This device uses GPS and compass sensors to help navigate back to a saved "home"
 - [Configuration](#configuration)
 - [User Interface](#user-interface)
 - [Power & Battery Life](#power--battery-life)
+- [Release Notes](RELEASE_NOTES.md)
 
 ## Hardware Requirements
 
