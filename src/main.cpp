@@ -511,21 +511,14 @@ void updateSOS() {
     
     unsigned long now = millis();
 
-    // --- LoRa Transmission (DISABLED) ---
-    /*
-    if (now - lastLoRaTx > LORA_TX_INTERVAL) {
-        lastLoRaTx = now;
-        // ... Code removed for stability ...
-    }
-    */
-
     // --- LED Pattern (SOS) ---
+    // S (...) O (---) S (...)
     const int DOT = 200;
     const int GAP = 200;
     static const int pattern[] = {
-        DOT, GAP, DOT, GAP, DOT, GAP*3, // S
-        DOT*3, GAP, DOT*3, GAP, DOT*3, GAP*3, // O (Dash=3xDot)
-        DOT, GAP, DOT, GAP, DOT, GAP*7 // S + Pause
+        DOT, GAP, DOT, GAP, DOT, GAP*3,         // S
+        DOT*3, GAP, DOT*3, GAP, DOT*3, GAP*3,   // O
+        DOT, GAP, DOT, GAP, DOT, GAP*7          // S + Pause
     };
     const int steps = sizeof(pattern) / sizeof(pattern[0]);
     
@@ -533,8 +526,14 @@ void updateSOS() {
         lastSOSUpdate = now;
         sosStep++;
         if (sosStep >= steps) sosStep = 0;
-        // digitalWrite(PIN_FLASHLIGHT, (sosStep % 2 == 0) ? HIGH : LOW);
-        // TODO: Future upgrade: Miniature DC-SSR for power saving. LED removed for now.
+        
+        // Blink NeoPixel RED
+        if (sosStep % 2 == 0) {
+            pixels.setPixelColor(0, pixels.Color(255, 0, 0)); // ON (Red)
+        } else {
+            pixels.setPixelColor(0, pixels.Color(0, 0, 0));   // OFF
+        }
+        pixels.show();
     }
 }
 
@@ -1083,7 +1082,9 @@ void loop() {
     // Update Status LED (50Hz)
     static unsigned long lastLedUpdate = 0;
     if (millis() - lastLedUpdate > LED_UPDATE_INTERVAL) {
-        if (isCharging) {
+        if (isSOSActive) {
+            updateSOS();
+        } else if (isCharging) {
             static int chargeBright = 0;
             static int chargeDir = 5;
             pixels.setPixelColor(0, pixels.Color(0, chargeBright, 0));
