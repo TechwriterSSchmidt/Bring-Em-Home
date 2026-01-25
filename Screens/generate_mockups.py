@@ -62,18 +62,18 @@ def generate_sos():
     
     # Title
     font_title = get_font(16, bold=True)
-    text = "SOS ACTIVE"
+    text = "RETURN MODE"
     w = draw.textlength(text, font=font_title)
     draw.text(((WIDTH - w) / 2, 20), text, font=font_title, fill=FG_COLOR)
     
     # Subtext
     font_sub = get_font(10)
-    text = "Beacon Active"
+    text = "Guiding Home!"
     w = draw.textlength(text, font=font_sub)
     draw.text(((WIDTH - w) / 2, 60), text, font=font_sub, fill=FG_COLOR)
     
     img.save("mockup_sos.png")
-    print("Generated mockup_sos.png")
+    print("Generated mockup_sos.png (Renamed content)")
 
 def generate_confirm_home():
     img = create_image()
@@ -322,6 +322,9 @@ if __name__ == "__main__":
     generate_searching()
     generate_nav()
     generate_charging()
+    generate_sos_countdown()
+    generate_confirm_home()
+    generate_breadcrumb()
     generate_sos_countdown()
     generate_confirm_home()
     generate_breadcrumb()

@@ -53,7 +53,8 @@ See [Docs/SCHEMATIC.txt](Docs/SCHEMATIC.txt) for detailed wiring diagrams.
 | **Searching** | ![Searching](Screens/mockup_searching.png) | Device is acquiring GPS signals. Wait for lock. |
 | **Confirm Home** | ![Confirm](Screens/mockup_confirm.png) | **1x Click:** Set new Home (Here).<br>**2x Click:** Load saved Home. |
 | **Navigation** | ![Nav](Screens/mockup_nav.png) | **Explore:** Shows Compass & Stats.<br>**Arrow:** Points to Home/Target. |
-| **Panic / SOS** | ![SOS](Screens/mockup_sos.png) | Activated by holding button >3s.<br>Guides you back immediately. |
+| **Return Mode** | ![Return](Screens/mockup_breadcrumb.png) | **Backtrack:** Follow arrow to nearest breadcrumb.<br>**Distance:** Shows dist to next WP. |
+| **Get Me Home** | ![SOS](Screens/mockup_sos.png) | Activated by holding button >3s.<br>Guides you back immediately. |
 
 ### Button Controls (Single Button)
 
@@ -63,7 +64,7 @@ The device is operated entirely with a single button.
 | :--- | :--- | :--- |
 | **Screen OFF** | **1 Click** | Wake up display. |
 | **Screen ON** | **1 Click** | Cycle Menu Options (Switch Mode -> Power Off). |
-| **Menu Active** | **Hold (1s)** | Select/Execute the displayed option. |
+| **Menu Active** | **Hold (1s)** |GET ME HOMxecute the displayed option. |
 | **Any Time** | **Hold (3s)** | **PANIC MODE:** Immediate activaton of Return Mode. |
 | **Startup** | **1x / 2x Click** | Confirm Home Location (1x = New, 2x = Load). |
 
@@ -95,7 +96,7 @@ Calculated based on average power consumption of ~15mA (Screen Off, GPS Active) 
 - **Breadcrumb Trail**: Automatically drops digital breadcrumbs to trace your path back.
 - **Persistent Storage**: Never lose your home point or path if power fails (saved to Internal Flash).
 - **Return Logic**: Guidance back to the nearest previous point, then the next, retracing your steps.
-- **Simple UI**: Designed for ease of use under stress (Panic Button, High Contrast).
+- **Simple UI**: Designed for ease of use under stress (Quick Return, High Contrast).
 
 ## License
 

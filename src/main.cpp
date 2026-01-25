@@ -904,19 +904,28 @@ void loop() {
     // While Button Held
     if (currentButtonState == LOW) {
         unsigned long duration = now - buttonPressStartTime;
+        
+        // PANIC / RETURN MODE (3s Hold)
+        if (!isLongPressHandled && duration > 3000 && duration < 10000) {
+             isLongPressHandled = true;
+             currentMode = MODE_RETURN;
+             // Haptic Feedback
+             triggerVibration(); delay(100); triggerVibration(); delay(100); triggerVibration();
+             showFeedback("RETURN MODE", "GET ME HOME!", FEEDBACK_DURATION_LONG);
+             if (!isDisplayOn) { u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF); isDisplayOn = true; }
+             lastInteractionTime = now;
+             
+             // Set target to last breadcrumb
+             if (!breadcrumbs.empty()) {
+                  targetBreadcrumbIndex = breadcrumbs.size() - 1;
+             }
+        }
 
-        // EXTRA LONG PRESS (15s) -> SETUP MODE (ID Selection)
+        // EXTRA LONG PRESS (15s) -> SETUP MODE (ID Selection) [Keep logic but fix structure if broken]
         if (!isLongPressHandled && duration > 15000) {
              isLongPressHandled = true;
-             currentMode = MODE_SET_ID;
-             if (deviceID < 1) deviceID = 1; 
-                 currentMode = MODE_RETURN;
-                 // Haptic Feedback
-                 triggerVibration(); delay(100); triggerVibration(); delay(100); triggerVibration();
-                 showFeedback("RETURN MODE", "PANIC ACTIVATED", FEEDBACK_DURATION_LONG);
-                 if (!isDisplayOn) { u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF); isDisplayOn = true; }
-                 lastInteractionTime = now;
-             }
+             // Legacy setup mode logic... disabled/simplified
+             showFeedback("SETUP LOCKED", "", 2000);
         }
     }
 
