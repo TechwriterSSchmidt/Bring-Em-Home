@@ -44,6 +44,29 @@ See [Docs/SCHEMATIC.txt](Docs/SCHEMATIC.txt) for detailed wiring diagrams.
 - **Vibration Motor**: P0.13
 - **RGB LED**: P0.17 (Internal)
 
+## User Interface & Usage
+
+### Visual Guide
+
+| Mode | Screen | Description |
+| :--- | :---: | :--- |
+| **Searching** | ![Searching](Screens/mockup_searching.png) | Device is acquiring GPS signals. Wait for lock. |
+| **Confirm Home** | ![Confirm](Screens/mockup_confirm.png) | **1x Click:** Set new Home (Here).<br>**2x Click:** Load saved Home. |
+| **Navigation** | ![Nav](Screens/mockup_nav.png) | **Explore:** Shows Compass & Stats.<br>**Arrow:** Points to Home/Target. |
+| **Panic / SOS** | ![SOS](Screens/mockup_sos.png) | Activated by holding button >3s.<br>Guides you back immediately. |
+
+### Button Controls (Single Button)
+
+The device is operated entirely with a single button.
+
+| Context | Action | Function |
+| :--- | :--- | :--- |
+| **Screen OFF** | **1 Click** | Wake up display. |
+| **Screen ON** | **1 Click** | Cycle Menu Options (Switch Mode -> Power Off). |
+| **Menu Active** | **Hold (1s)** | Select/Execute the displayed option. |
+| **Any Time** | **Hold (3s)** | **PANIC MODE:** Immediate activaton of Return Mode. |
+| **Startup** | **1x / 2x Click** | Confirm Home Location (1x = New, 2x = Load). |
+
 ## Power Management & Optimization
 
 The device features an advanced power management system centered around the **nRF52840's Deep Sleep** capabilities.

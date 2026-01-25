@@ -66,21 +66,48 @@ def generate_sos():
     w = draw.textlength(text, font=font_title)
     draw.text(((WIDTH - w) / 2, 20), text, font=font_title, fill=FG_COLOR)
     
-    # Countdown
-    font_huge = get_font(42, bold=True)
-    text = "118"
-    w = draw.textlength(text, font=font_huge)
-    # Centered vertically at Y=45 (approx)
-    draw.text(((WIDTH - w) / 2, 45), text, font=font_huge, fill=FG_COLOR)
-    
-    # Footer
+    # Subtext
     font_sub = get_font(10)
-    text = "Sending Location..."
+    text = "Beacon Active"
     w = draw.textlength(text, font=font_sub)
-    draw.text(((WIDTH - w) / 2, 110), text, font=font_sub, fill=FG_COLOR)
+    draw.text(((WIDTH - w) / 2, 60), text, font=font_sub, fill=FG_COLOR)
     
     img.save("mockup_sos.png")
     print("Generated mockup_sos.png")
+
+def generate_confirm_home():
+    img = create_image()
+    draw = ImageDraw.Draw(img)
+    
+    draw_header(draw)
+    
+    font_title = get_font(12, bold=True)
+    text = "SET HOME HERE?"
+    w = draw.textlength(text, font=font_title)
+    draw.text(((WIDTH - w) / 2, 30), text, font=font_title, fill=FG_COLOR)
+    
+    font_text = get_font(10)
+    
+    # Fake coords
+    lat = "Lat: 48.13715"
+    lon = "Lon: 11.57612"
+    
+    w = draw.textlength(lat, font=font_text)
+    draw.text(((WIDTH - w) / 2, 50), lat, font=font_text, fill=FG_COLOR)
+    
+    w = draw.textlength(lon, font=font_text)
+    draw.text(((WIDTH - w) / 2, 62), lon, font=font_text, fill=FG_COLOR)
+    
+    # Line
+    draw.line((0, 75, 128, 75), fill=FG_COLOR)
+    
+    # Options
+    font_opt = get_font(10, bold=True)
+    draw.text((10, 95), "1x: YES", font=font_opt, fill=FG_COLOR)
+    draw.text((10, 115), "2x: NO (Load)", font=font_opt, fill=FG_COLOR)
+    
+    img.save("mockup_confirm.png")
+    print("Generated mockup_confirm.png")
 
 def generate_searching():
     img = create_image()
@@ -283,34 +310,12 @@ def generate_sos_countdown():
     
     # Footer
     font_sub = get_font(10)
-    text = "Press to Cancel"
+    text = "Press button to Cancel"
     w = draw.textlength(text, font=font_sub)
     draw.text(((WIDTH - w) / 2, 110), text, font=font_sub, fill=FG_COLOR)
     
     img.save("mockup_sos_countdown.png")
     print("Generated mockup_sos_countdown.png")
-
-def generate_ota():
-    img = create_image()
-    draw = ImageDraw.Draw(img)
-    
-    font_title = get_font(12, bold=True)
-    font_text = get_font(11)
-    
-    lines = [
-        ("OTA UPDATE MODE", font_title, 10),
-        ("Connect WiFi:", font_text, 30),
-        ("Bring_Em_Home", font_text, 45),
-        ("Go to:", font_text, 65),
-        ("192.168.4.1", font_text, 80)
-    ]
-    
-    for text, font, y in lines:
-        w = draw.textlength(text, font=font)
-        draw.text(((WIDTH - w) / 2, y), text, font=font, fill=FG_COLOR)
-    
-    img.save("mockup_ota.png")
-    print("Generated mockup_ota.png")
 
 if __name__ == "__main__":
     generate_sos()
@@ -318,5 +323,5 @@ if __name__ == "__main__":
     generate_nav()
     generate_charging()
     generate_sos_countdown()
-    generate_ota()
+    generate_confirm_home()
     generate_breadcrumb()
