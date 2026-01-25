@@ -61,16 +61,19 @@ def generate_sos():
     draw = ImageDraw.Draw(img)
     
     # Title
-    font_title = get_font(16, bold=True)
-    text = "RETURN MODE"
+    font_title = get_font(14, bold=True)
+    text = "Bring Em Home!"
     w = draw.textlength(text, font=font_title)
-    draw.text(((WIDTH - w) / 2, 20), text, font=font_title, fill=FG_COLOR)
+    draw.text(((WIDTH - w) / 2, 35), text, font=font_title, fill=FG_COLOR)
     
     # Subtext
-    font_sub = get_font(10)
-    text = "Guiding Home!"
+    font_sub = get_font(12)
+    text = "Return Active"
     w = draw.textlength(text, font=font_sub)
     draw.text(((WIDTH - w) / 2, 60), text, font=font_sub, fill=FG_COLOR)
+    
+    # Optional Arrow or Icon
+    # draw_arrow(draw, WIDTH/2, 90, 20, 0) # Small arrow pointing up
     
     img.save("mockup_sos.png")
     print("Generated mockup_sos.png (Renamed content)")
