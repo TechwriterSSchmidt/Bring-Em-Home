@@ -1,6 +1,6 @@
 # Bring Em Home 🏠
 
-A dedicated GPS navigation device designed to help user safely find their way back to their starting location on every hike using GPS-breadcrumbs. 
+A dedicated GPS navigation device designed to guide Emilie safely back to her starting location on every hike using GPS-breadcrumbs and a dead-simple single-button UI.
 
 ## Overview
 
