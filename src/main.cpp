@@ -669,6 +669,7 @@ void setup() {
     // --- Wake-up Check (Soft-Off Logic) ---
     pinMode(PIN_BUTTON, INPUT_PULLUP);
     
+    /* DISABLED for Debugging USB
     if (digitalRead(PIN_BUTTON) == LOW) {
         unsigned long start = millis();
         bool turnOn = false;
@@ -693,6 +694,8 @@ void setup() {
             digitalWrite(PIN_VIB_MOTOR, HIGH); delay(500); digitalWrite(PIN_VIB_MOTOR, LOW);
         }
     }
+    */
+    delay(500); // Startup stabilization
 
     // Power on VExt for sensors (GPS, LoRa, OLED)
     // pinMode(PIN_VEXT, OUTPUT);
@@ -777,13 +780,14 @@ void setup() {
     Wire.setClock(I2C_SPEED_FAST); // Increase I2C speed to 400kHz
 
     // Init External I2C for Sensor (P2 Header)
-    Wire1.setPins(PIN_EXT_SDA, PIN_EXT_SCL);
-    Wire1.begin();
-    Wire1.setClock(I2C_SPEED_FAST);
+    // Wire1 uses same pins as Wire, avoiding double-init
+    // Wire1.setPins(PIN_EXT_SDA, PIN_EXT_SCL);
+    // Wire1.begin();
+    // Wire1.setClock(I2C_SPEED_FAST);
     
     // Initialize IMU (BNO085 or BNO055)
     #if USE_BNO085
-    if (!bno08x.begin_I2C(BNO085_ADDRESS, &Wire1)) {
+    if (!bno08x.begin_I2C(BNO085_ADDRESS, &Wire)) {
         Serial.println("No BNO085 detected on External I2C!");
         hasCompass = false;
     } else {
