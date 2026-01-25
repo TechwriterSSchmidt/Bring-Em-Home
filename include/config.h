@@ -51,7 +51,7 @@
 #define PIN_FLASHLIGHT      -1      // Disabled
 
 // --- Power Management ---
-#define BATTERY_CAPACITY_MAH 1500   // Battery Capacity in mAh (Adjust to your battery)
+#define BATTERY_CAPACITY_MAH 1000   // Battery Capacity in mAh (Adjust to your battery)
 #define SOS_CURRENT_MA      220     // Estimated current consumption in SOS mode (mA) -> Kept for calculation logic usage if any, otherwise unused
 #define CHARGE_CURRENT_MA   500     // Estimated charging current (mA) - usually 500mA for USB
 #define DISPLAY_TIMEOUT     120000  // Display Auto-Off (ms) -> 2 Minutes
@@ -61,23 +61,21 @@
 #define CHARGE_CHECK_DURATION     300000 // Duration to check for charger after boot (ms) -> 5 Minutes
 
 // --- Feature Settings ---
-// User Data - Comment out to disable specific fields
-#define USER_BLOOD_TYPE     "A+"         // Optional: Blood Type
-#define USER_GENDER         "female"     // Optional: Gender
-#define USER_BIRTH_YEAR     1984         // Optional: Birth Year (Age calculated via GPS)
-#define USER_MED_ALLERGIES  "None"       // Optional: Medication Allergies
-
-// LoRa SOS - REMOVED
-
-// Buddy Tracking Configuration - REMOVED
+// User Data - All Personal Data / LoRa Features are REMOVED (Confidential/Unused)
 
 // Navigation
-#define BREADCRUMB_DIST     50.0    // Distance between breadcrumbs (meters) - Reduced for better precision
-#define MAX_BREADCRUMBS     2000    // Max breadcrumbs (Limited for Filesystem storage)
+#define DEFAULT_BREADCRUMB_DIST 25.0 // Default distance between breadcrumbs (m)
+#define MAX_BREADCRUMBS     5000    // Max breadcrumbs (~80KB RAM usage, covers 125km @ 25m)
 #define MIN_SPEED_KPH       0.5     // Minimum speed to record breadcrumb (prevents GPS drift)
 #define MAX_SPEED_KPH       12.0    // Maximum realistic hiking speed (prevents GPS glitches)
 #define BREADCRUMB_TURN_THRESHOLD 45.0 // Degrees change to trigger breadcrumb
 #define BREADCRUMB_MIN_DIST_TURN  20.0 // Min distance to check for turn (meters)
+#define ACCEL_MOTION_THRESHOLD 0.3  // Linear Acceleration threshold (m/s^2) to confirm movement
+
+// Display Smart Wake
+#define TILT_WAKE_ANGLE     35.0    // Angle (Pitch) to detect "Looking at screen" (< 35 deg from flat)
+#define TILT_SLEEP_DELAY    2000    // Delay to turn off screen when arm dropped (ms) -> fast off
+#define TILT_HYSTERESIS     10.0    // Hysteresis for tilt detection
 
 // User Interface
 #define CLICK_DELAY         500     // Max delay between clicks (ms)
@@ -109,24 +107,7 @@
 #define GPS_BAUD            9600    // GPS Serial Baud Rate (Matek M10Q default)
 #define NEOPIXEL_INDEX      0       // Index of the single NeoPixel
 
-// LoRa Configuration
-#define LORA_BW             125.0   // Bandwidth (kHz) - Keep 125 for stability
-#define LORA_SF             12      // Spreading Factor (12 = Max Range, Slowest)
-#define LORA_CR             8       // Coding Rate (4/8 = Max Error Correction)
-#define LORA_SYNC_WORD      0x12    // Sync Word (Private Network)
-#define LORA_POWER          22      // Output Power (dBm) - Max for SX1262
-#define LORA_PREAMBLE       8       // Preamble Length
-#define LORA_TCXO_VOLTAGE   1.6     // TCXO Voltage (1.6V for Heltec T114)
-
-// --- LoRaWAN Configuration (Hybrid Mode) ---
-// Set to 1 to enable LoRaWAN (TTN) + P2P Fallback
-#define ENABLE_LORAWAN      0       
-
-// TTN Keys (MSB Format) - Get these from TTN Console
-#define LORAWAN_JOIN_EUI    0x0000000000000000  // AppEUI
-#define LORAWAN_DEV_EUI     0x0000000000000000  // DeviceEUI
-// AppKey: 16 Bytes, e.g. {0x00, 0x01, ...}
-#define LORAWAN_APP_KEY     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+// LoRa config removed (Not used in this version)
 
 // UI Layout
 #define STATUS_BAR_LINE_Y   15      // Y-coordinate of the status bar separator

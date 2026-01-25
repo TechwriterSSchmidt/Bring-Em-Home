@@ -66,8 +66,9 @@ The device is operated entirely with a single button.
 | Context | Action | Function |
 | :--- | :--- | :--- |
 | **Screen OFF** | **1 Click** | Wake up display. |
-| **Screen ON** | **1 Click** | Cycle Menu Options (Switch Mode -> Power Off). |
-| **Menu Active** | **Hold (1s)** | Execute the displayed option. |
+| **Screen ON** | **1 Click** | Cycle Menu Options (Switch Mode -> Change Dist -> Power Off). |
+| **Menu: Dist** | **Hold (1s)** | **Change Distance:** Cycle 25m -> 50m -> 75m (Default: 25m). |
+| **Menu Active** | **Hold (1s)** | Execute the displayed option (Explore/Return, or Power Off). |
 | **Any Time** | **Hold (3s)** | **GET EM HOME:** Toggle between Explore and Return Mode. |
 | **Startup** | **1x / 2x Click** | Confirm Home Location (1x = New, 2x = Load). |
 
@@ -92,6 +93,7 @@ The device features an advanced power management system centered around the **nR
 | :--- | :--- | :--- |
 | **GPS Throttling** | **1-2 Hz** | Powers down the RF stage between fixes. |
 | **Sensor Fusion** | **10 Hz** | Reduces I2C traffic to minimum needed for smooth UI. |
+| **Smart Wake** | **IMU-Based** | Display wakes when **lifted/flat** (< 35° tilt) and sleeps fast (2s) when **hanging** (> 35° tilt) to save battery. |
 | **Smart Display** | **Auto-Off** | Automatically creates deep-sleep windows for the OLED when not actively navigating. |
 | **File System** | **LittleFS** | Efficiently stores breadcrumbs to Flash memory (persists through reboot). |
 
@@ -106,8 +108,11 @@ Calculated based on average power consumption of ~15mA (Screen Off, GPS Active) 
 | **1500 mAh** | ~100 Hours | ~42 Hours | > 1 Year
 ## Features
 
+- **Smart "Lift-to-Wake"**: Uses the IMU to automatically turn the display ON when looked at (held flat) and OFF when hanging by the side, maximizing battery life.
 - **Compass Navigation**: Tilt-compensated heading to home/waypoint.
 - **Breadcrumb Trail**: Automatically drops digital breadcrumbs to trace your path back.
+  - **Storage:** Up to **5000 points** (~125 km range @ 25m, >350km @ 75m).
+  - **Adjustable Density:** Select between **25m**, **50m**, or **75m** spacing via the on-device menu.
 - **Persistent Storage**: Never lose your home point or path if power fails (saved to Internal Flash).
 - **Return Logic**: Guidance back to the nearest previous point, then the next, retracing your steps.
 - **Simple UI**: Designed for ease of use under stress (Quick Return, High Contrast).
@@ -124,8 +129,9 @@ The firmware includes several "fail-safe" mechanisms to ensure reliability in cr
     *   **Risk:** Power loss during a file write (e.g., battery dies while saving Home) could corrupt data.
     *   **Solution:** All critical data (`home.txt`, `state.txt`) uses an **atomic write strategy**. Data is written to a temporary file (`.tmp`) first, verified, and then atomically renamed. This ensures files are either fully updated or remain at their last valid state.
 
-3.  **Smart GPS Filtering**
-    *   **Drift Protection:** Breadcrumbs are only recorded if speed is > 0.5 km/h. This prevents the "spiderweb effect" (accumulating false points while sitting still).
+3.  **Smart GPS & IMU Filtering**
+    *   **Motion Gating (IMU):** To solve "Stationary Drift" (GPS wandering while sitting still), the device checks the **Linear Acceleration** sensor. Coordinates are ONLY saved if the device physically detects movement (`> 0.3 m/s²`).
+    *   **Drift Protection:** Breadcrumbs are only recorded if GPS speed is > 0.5 km/h.
     *   **Quality Gate:** Points are rejected if HDOP (Signal Precision) is > 2.5, ensuring only reliable coordinates are stored.
 
 4.  **Hardware & Input Stability**

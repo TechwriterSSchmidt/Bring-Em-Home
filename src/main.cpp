@@ -129,8 +129,8 @@ bool loadHomePosition(double &lat, double &lon) {
 }
 
 void saveState(int mode, int targetIdx) {
-    // Format: MODE,TARGET_INDEX
-    String data = String(mode) + "," + String(targetIdx);
+    // Format: MODE,TARGET_INDEX,DIST
+    String data = String(mode) + "," + String(targetIdx) + "," + String((int)breadcrumbDistance);
     saveFileSafe("/state.txt", data);
 }
 
@@ -140,11 +140,24 @@ void loadState(AppMode &mode, int &targetIdx) {
         File file = InternalFS.open("/state.txt", FILE_O_READ);
         if (file) {
             String content = file.readString();
-            int comma = content.indexOf(',');
-            if (comma > 0) {
-                mode = (AppMode)content.substring(0, comma).toInt();
-                targetIdx = content.substring(comma + 1).toInt();
-                Serial.printf("State Restored: Mode %d, Target %d\n", mode, targetIdx);
+            int c1 = content.indexOf(',');
+            if (c1 > 0) {
+                mode = (AppMode)content.substring(0, c1).toInt();
+                int c2 = content.indexOf(',', c1 + 1);
+                if (c2 > 0) {
+                     targetIdx = content.substring(c1 + 1, c2).toInt();
+                     breadcrumbDistance = content.substring(c2 + 1).toFloat();
+                } else {
+                     targetIdx = content.substring(c1 + 1).toInt();
+                     breadcrumbDistance = DEFAULT_BREADCRUMB_DIST;
+                }
+                
+                // Sanity Check
+                if (breadcrumbDistance != 25.0 && breadcrumbDistance != 50.0 && breadcrumbDistance != 75.0) {
+                    breadcrumbDistance = DEFAULT_BREADCRUMB_DIST;
+                }
+                
+                Serial.printf("State Restored: Mode %d, Target %d, Dist %.0f\n", mode, targetIdx, breadcrumbDistance);
             }
             file.close();
         }
@@ -214,6 +227,7 @@ U8G2_SH1107_128X128_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 enum MenuState {
   MENU_NONE,
   MENU_MODE_SWITCH, // Explore <-> Return
+  MENU_DIST_SWITCH, // 25m / 50m / 75m
   MENU_POWER_OFF    // Ausschalten
 };
 
@@ -228,6 +242,7 @@ const unsigned long SOS_CONFIRM_TIME = 10000; // 10 Sekunden halten für SOS aus
 int deviceID = -1; // -1 = Not Set
 
 // Navigation Data
+float breadcrumbDistance = DEFAULT_BREADCRUMB_DIST;
 double homeLat = 0.0;
 double homeLon = 0.0;
 double savedHomeLat = 0.0;
@@ -235,12 +250,11 @@ double savedHomeLon = 0.0;
 bool hasSavedHome = false;
 bool hasHome = false;
 double currentHeading = 0.0;
+double currentPitch = 0.0; // Added Pitch for Smart Wake
 double displayedHeading = 0.0;
 unsigned long startTime = 0;
 
 // Breadcrumbs Struct Moved to Top
-// std::vector<Breadcrumb> breadcrumbs; // Removed duplicate
-// int targetBreadcrumbIndex = -1; // Removed duplicate
 
 // Button Logic (Multi-click)
 int clickCount = 0;
@@ -332,8 +346,6 @@ void powerOff() {
     // 3. Sensors OFF 
     // digitalWrite(PIN_VEXT, LOW); // No VEXT on SuperMini
 
-    // 4. LoRa Sleep - Removed
-    // radio.sleep();
     delay(10);
 
     // 6. Configure Wakeup
@@ -519,6 +531,11 @@ void drawMenuOverlay() {
   switch (currentMenuSelection) {
     case MENU_MODE_SWITCH:
       u8g2.print("OPTION: SWITCH MODE");
+      u8g2.setCursor(90, SCREEN_HEIGHT - 10);
+      u8g2.print("[Hold]");
+      break;
+    case MENU_DIST_SWITCH:
+      u8g2.print("DIST: " + String((int)breadcrumbDistance) + "m");
       u8g2.setCursor(90, SCREEN_HEIGHT - 10);
       u8g2.print("[Hold]");
       break;
@@ -766,6 +783,10 @@ void setup() {
         if (!bno08x.enableReport(SH2_ARVR_STABILIZED_RV, 100000)) { // 100ms interval (10Hz)
              Serial.println("Could not enable rotation vector");
         }
+        // Enable Linear Acceleration (Motion Detection)
+        if (!bno08x.enableReport(SH2_LINEAR_ACCELERATION, 200000)) { // 200ms
+             Serial.println("Could not enable linear accel");
+        }
     }
     #else
     // Initialize BNO055 with Retry Logic
@@ -923,38 +944,91 @@ void loop() {
         gps.encode(Serial1.read());
     }
 
-    // 2. Process Compass
+    // 2. Process Compass & IMU Motion Analysis
+    static bool isMoving = true; // Default to true if no IMU
+    static unsigned long lastVerticalTime = 0; // Timer for drop detection
+    
     if (hasCompass) {
         #if USE_BNO085
         if (bno08x.getSensorEvent(&sensorValue)) {
             if (sensorValue.sensorId == SH2_ARVR_STABILIZED_RV) {
-                // Convert Quaternion to Euler (Heading)
-                float qw = sensorValue.un.arvrStabilizedRV.real;
-                float qx = sensorValue.un.arvrStabilizedRV.i;
-                float qy = sensorValue.un.arvrStabilizedRV.j;
-                float qz = sensorValue.un.arvrStabilizedRV.k;
+                // Convert Quaternion to Euler (Heading & Pitch)
+                float r = sensorValue.un.arvrStabilizedRV.real;
+                float i = sensorValue.un.arvrStabilizedRV.i;
+                float j = sensorValue.un.arvrStabilizedRV.j;
+                float k = sensorValue.un.arvrStabilizedRV.k;
                 
-                float siny_cosp = 2 * (qw * qz + qx * qy);
-                float cosy_cosp = 1 - 2 * (qy * qy + qz * qz);
-                float yaw = atan2(siny_cosp, cosy_cosp);
-                
-                currentHeading = (yaw * 180.0 / PI);
+                // Yaw (Heading)
+                float siny_cosp = 2 * (r * k + i * j);
+                float cosy_cosp = 1 - 2 * (j * j + k * k);
+                currentHeading = atan2(siny_cosp, cosy_cosp) * 180.0 / PI;
                 if (currentHeading < 0) currentHeading += 360.0;
+                
+                // Pitch (Tilt) - Rotation around X-axis (assuming device is mounted flat)
+                // Note: Depending on mounting, this might need to swap with Roll.
+                // Assuming standard: Flat = 0.
+                float sinp = 2 * (r * j - k * i);
+                if (abs(sinp) >= 1) currentPitch = copysign(M_PI / 2, sinp); // Use 90 degrees if out of range
+                else currentPitch = asin(sinp);
+                currentPitch = currentPitch * 180.0 / PI;
+
                 compassAccuracy = sensorValue.status;
+            } else if (sensorValue.sensorId == SH2_LINEAR_ACCELERATION) {
+                 float x = sensorValue.un.linearAcceleration.x;
+                 float y = sensorValue.un.linearAcceleration.y;
+                 float z = sensorValue.un.linearAcceleration.z;
+                 float mag = sqrt(x*x + y*y + z*z);
+                 if (mag > ACCEL_MOTION_THRESHOLD) isMoving = true; else isMoving = false;
             }
         }
-        // uint8_t mag = 3; // BNO085 handles calibration internally, assume good
         #else
-        sensors_event_t orientationData;
+        sensors_event_t orientationData, linearAccelData;
         bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
         currentHeading = orientationData.orientation.x;
-
-        uint8_t sys, gyro, accel, mag = 0;
-        bno.getCalibration(&sys, &gyro, &accel, &mag);
-        compassAccuracy = sys;
+        currentPitch = orientationData.orientation.y; // BNO055 Y is typically Pitch (check mounting)
+        
+        bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
+        float x = linearAccelData.acceleration.x;
+        float y = linearAccelData.acceleration.y;
+        float z = linearAccelData.acceleration.z;
+        float mag = sqrt(x*x + y*y + z*z);
+        if (mag > ACCEL_MOTION_THRESHOLD) isMoving = true; else isMoving = false;
         #endif
+    } else {
+        isMoving = true; // Fallback: Trust GPS if no IMU
     }
 
+    // --- SMART WAKE / SLEEP (IMU Based) ---
+    // Only in MODE_RETURN (Power saving critical) or EXPLORE? Let's do both for consistency.
+    // If device is held FLAT (+/- Threshold) -> Keep Awake / Wake Up
+    // If device is DROPPED (Vertical) -> Fast Sleep
+    
+    if (hasCompass) {
+        float absPitch = abs(currentPitch);
+        bool isFlat = (absPitch < TILT_WAKE_ANGLE);
+        
+        if (isFlat) {
+            // User is looking at screen: Keep awake
+            if (!isDisplayOn && (millis() - lastInteractionTime > 1000)) { // Debounce wake
+                 u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF);
+                 isDisplayOn = true;
+            }
+            lastInteractionTime = millis(); // Refresh standard timeout
+            lastVerticalTime = millis();    // Reset vertical timer
+        } else {
+             // Device is tilted away/hanging
+             if (isDisplayOn && (millis() - lastMenuInteraction > 2000)) { // Don't kill if in menu!
+                 // If we have been vertical for > TILT_SLEEP_DELAY (2s), Turn Off
+                 if (millis() - lastVerticalTime > TILT_SLEEP_DELAY) {
+                      u8g2.setPowerSave(DISPLAY_POWER_SAVE_ON);
+                      isDisplayOn = false;
+                 }
+             } else {
+                 lastVerticalTime = millis();
+             }
+        }
+    }
+    
     // 3. Button Logic (Debounced)
     bool rawReading = digitalRead(PIN_BUTTON);
     static bool lastRawReading = HIGH;
@@ -1032,56 +1106,66 @@ void loop() {
         } else {
              // Display is ON
              if (!isLongPressHandled) {
-                 // SPECIAL MODE: SET ID
-                 if (currentMode == MODE_SET_ID) {
-                     if (duration < LONG_PRESS_THRESHOLD) {
-                         // Short Click: Cycle ID
+                 if (duration < LONG_PRESS_THRESHOLD) {
+                     // --- SHORT CLICK ---
+                     if (currentMode == MODE_SET_ID) {
                          deviceID++;
                          if (deviceID > 5) deviceID = 1;
                      } else {
-                         // Long Click: Save & Exit
-                         // saveBuddyID(deviceID); // Feature removed
-                         showFeedback("ID SAVED", "ID: " + String(deviceID), 3000);
-                         currentMode = MODE_EXPLORE;
-                        switch(currentMenuSelection) {
-                                 case MENU_MODE_SWITCH: currentMenuSelection = MENU_POWER_OFF; break;
-                                 case MENU_POWER_OFF: currentMenuSelection = MENU_NONE; break;
-                                 default: currentMenuSelection = MENU_NONE;
-                             }
+                         // Cycle Menu
+                         switch(currentMenuSelection) {
+                             case MENU_NONE: currentMenuSelection = MENU_MODE_SWITCH; break;
+                             case MENU_MODE_SWITCH: currentMenuSelection = MENU_DIST_SWITCH; break;
+                             case MENU_DIST_SWITCH: currentMenuSelection = MENU_POWER_OFF; break;
+                             case MENU_POWER_OFF: currentMenuSelection = MENU_NONE; break;
+                             default: currentMenuSelection = MENU_NONE; break;
                          }
-                         lastMenuInteraction = now;
+                         if (currentMenuSelection != MENU_NONE) lastMenuInteraction = now;
                      }
                  } else {
-                     // LONG CLICK (Action confirmation)
-                     if (currentMenuSelection != MENU_NONE) {
-                         switch(currentMenuSelection) {
-                             case MENU_MODE_SWITCH:
-                                if (currentMode == MODE_EXPLORE) {
-                                    currentMode = MODE_RETURN;
-                                    showFeedback("GET EM HOME!", "Returning...", 2000);
-                                    if (!breadcrumbs.empty() && gps.location.isValid()) {
-                                        targetBreadcrumbIndex = breadcrumbs.size() - 1; 
+                     // --- LONG CLICK (Action) ---
+                     if (currentMode == MODE_SET_ID) {
+                         showFeedback("ID SAVED", "ID: " + String(deviceID), 3000);
+                         currentMode = MODE_EXPLORE;
+                     } else {
+                         if (currentMenuSelection != MENU_NONE) {
+                             switch(currentMenuSelection) {
+                                 case MENU_MODE_SWITCH:
+                                    if (currentMode == MODE_EXPLORE) {
+                                        currentMode = MODE_RETURN;
+                                        showFeedback("GET EM HOME!", "Returning...", 2000);
+                                        if (!breadcrumbs.empty() && gps.location.isValid()) {
+                                            targetBreadcrumbIndex = breadcrumbs.size() - 1; 
+                                        }
+                                    } else {
+                                        currentMode = MODE_EXPLORE;
+                                        showFeedback("EXPLORE MODE", "", 2000);
                                     }
-                                } else {
-                                    currentMode = MODE_EXPLORE;
-                                    showFeedback("EXPLORE MODE", "", 2000);
-                                }
-                                triggerVibration();
-                                currentMenuSelection = MENU_NONE;
-                                break;
-                             case MENU_POWER_OFF:
-                                powerOff();
-                                break;
-                             default: break;
+                                    saveState(currentMode, targetBreadcrumbIndex);
+                                    triggerVibration();
+                                    currentMenuSelection = MENU_NONE;
+                                    break;
+                                 case MENU_DIST_SWITCH:
+                                    breadcrumbDistance += 25.0;
+                                    if (breadcrumbDistance > 75.0) breadcrumbDistance = 25.0;
+                                    saveState(currentMode, targetBreadcrumbIndex);
+                                    triggerVibration();
+                                    lastMenuInteraction = now; // Keep menu open
+                                    break;
+                                 case MENU_POWER_OFF:
+                                    powerOff();
+                                    break;
+                                 default: break;
+                             }
                          }
                      }
                  }
              }
         }
-    // } Removed accidental loop closure
+    }
     lastButtonState = currentButtonState;
 
-    // Legacy "Confirm Home" logic
+    // Confirm Home Logic (Legacy 1x/2x click)
     if (currentMode == MODE_CONFIRM_HOME && clickCount > 0 && (millis() - lastClickTime > 1000)) {
             if (clickCount == 1) {
                 // YES: Set Home Here
@@ -1132,7 +1216,11 @@ void loop() {
 
     // 5. Breadcrumb Logic
     bool isGoodSignal = gps.hdop.hdop() < 2.5;
-    if (currentMode == MODE_EXPLORE && gps.location.isValid() && isGoodSignal) {
+    
+    // IMU Filter: Only record if we are physically moving (or no IMU present)
+    // This effectively kills "Stationary Drift" where GPS wanders while sitting still.
+    
+    if (currentMode == MODE_EXPLORE && gps.location.isValid() && isGoodSignal && isMoving) {
         bool shouldSave = false;
         double speed = gps.speed.kmph();
         if (speed > MIN_SPEED_KPH && speed < MAX_SPEED_KPH) {
@@ -1141,7 +1229,7 @@ void loop() {
             } else {
                 Breadcrumb last = breadcrumbs.back();
                 double dist = gps.distanceBetween(gps.location.lat(), gps.location.lng(), last.lat, last.lon);
-                if (dist > BREADCRUMB_DIST) {
+                if (dist > breadcrumbDistance) {
                     shouldSave = true;
                 } else if (dist > BREADCRUMB_MIN_DIST_TURN) {
                     double currentSegmentBearing = gps.courseTo(last.lat, last.lon, gps.location.lat(), gps.location.lng());
@@ -1359,7 +1447,6 @@ void loop() {
             u8g2.setCursor(8, 12);
             u8g2.print(pct); u8g2.print("%");
 
-            // Buddy Indicator REMOVED
             {
                 #if !USE_BNO085
                 if (mag == 3) compStr = "Good"; else if (mag == 2) compStr = "Ok"; else if (mag == 1) compStr = "Low";
@@ -1483,12 +1570,6 @@ void loop() {
                 if (hasCompass && compassAccuracy < 2) {
                     u8g2.setFont(u8g2_font_5x7_tr);
                     u8g2.drawStr(110, 8, "CAL"); // Top Right
-                }
-
-                // Draw Buddy Arrow (Secondary) - REMOVED
-                if (currentMode == MODE_RETURN && !gps.location.isValid()) {
-                    u8g2.setFont(u8g2_font_ncenB10_tr);
-                    u8g2.drawStr(35, 60, "NO GPS");
                 }
             }
 
