@@ -1,16 +1,46 @@
-MIT License
+PolyForm Noncommercial License 1.0.0
 
-Copyright (c) 2024 Bring Em Home Contributors
+Copyright (c) 2026 Bring Em Home Contributors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Rights Granted
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The Licensor grants to each Recipient all rights required to use the
+Software and other Content, on a royalty-free basis, for any purpose
+other than a Commercial Use.
+
+2. Limitations on Grant
+
+The Licensor does not grant any rights for Commercial Use.
+
+3. Conditions
+
+The Licensor grants Rights only on the condition that:
+
+    a. The Recipient must ensure that anyone who receives the Software
+       or other Content from the Recipient also receives a copy of this
+       Agreement or the URL <https://polyformproject.org/licenses/noncommercial/1.0.0>,
+       and
+
+    b. If the Recipient makes any changes to the Software, they must
+       license those changes under the terms of this Agreement.
+
+4. Definitions
+
+"Commercial Use" means any use of the Software or other Content by a
+business, or for a commercial purpose, including use by any other person
+on behalf of a business or for a commercial purpose.
+
+"Content" means copyrightable material, including software and
+documentation.
+
+"Licensor" means the individual or entity offering the Content under
+this Agreement.
+
+"Recipient" means anyone who receives the Content under this Agreement.
+
+"Software" means the computer software offered under this Agreement.
+
+5. Disclaimer
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -19,31 +49,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-DISCLAIMER:
-
-This device is provided for educational and recreational use only. It is NOT
-intended for professional navigation, search and rescue operations, life-safety
-applications, or any mission-critical use.
-
-Users must:
-- Always carry proper maps, compass, and emergency equipment
-- Know how to use traditional navigation methods
-- Plan routes appropriately
-- Inform others of hiking plans
-- Be prepared for device failure
-
-The creators and contributors assume no liability for:
-- Device malfunctions or failures
-- Inaccurate navigation information
-- Personal injury or property damage
-- Getting lost or stranded
-- Any other consequences of device use
-
-GPS and compass readings can be affected by terrain, weather, interference,
-and hardware limitations. Users assume all risk when using this device.
-
-ALWAYS prioritize safety and proper outdoor skills over reliance on any
-electronic device.

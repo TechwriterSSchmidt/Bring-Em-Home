@@ -40,8 +40,7 @@ See [Docs/SCHEMATIC.txt](Docs/SCHEMATIC.txt) for detailed wiring diagrams.
 - **TX**: P0.06
 
 ### User Interface
-- **Button 1**: P0.15 (Main)
-- **Button 2**: P0.24 (Aux)
+- **Button**: P0.15 (Main User Input)
 - **Vibration Motor**: P0.13
 - **RGB LED**: P0.17 (Internal)
 
@@ -58,6 +57,16 @@ The device features an advanced power management system centered around the **nR
 | **Smart Display** | **Auto-Off** | Automatically creates deep-sleep windows for the OLED when not actively navigating. |
 | **File System** | **LittleFS** | Efficiently stores breadcrumbs to Flash memory (persists through reboot). |
 
+### Estimated Runtimes
+
+Calculated based on average power consumption of ~15mA (Screen Off, GPS Active) and ~35mA (Screen On, Active Navigation).
+
+| Battery Capacity | Screen Off (Tracking Only) | Screen On (Navigating) |
+| :--- | :--- | :--- | Deep Sleep (Standby) |
+| :--- | :--- | :--- | :--- |
+| **1000 mAh** | ~66 Hours | ~28 Hours | > 1 Year |
+| **1200 mAh** | ~80 Hours | ~34 Hours | > 1 Year |
+| **1500 mAh** | ~100 Hours | ~42 Hours | > 1 Year
 ## Features
 
 - **Compass Navigation**: Tilt-compensated heading to home/waypoint.

@@ -31,8 +31,7 @@ Connection Diagram:
                                     │  - TX: P0.06 (Conn to GPS RX)
                                     │                             │
                                     │ User Interface:             │
-                                    │  - Button 1: P0.15 (Main)   │
-                                    │  - Button 2: P0.24 (Aux)    │
+                                    │  - Button:   P0.15          │
                                     │                             │
                                     │ Feedback:                   │
                                     │  - VIB Motor: P0.13         │
@@ -51,8 +50,7 @@ PIN_I2C_SDA  | P0.22   | I2C Data (OLED + IMU)
 PIN_I2C_SCL  | P0.20   | I2C Clock (OLED + IMU)
 PIN_GPS_RX   | P0.08   | GPS UART RX (Connects to GPS Module TX)
 PIN_GPS_TX   | P0.06   | GPS UART TX (Connects to GPS Module RX)
-PIN_BUTTON_1 | P0.15   | Main Action Button (Active Low)
-PIN_BUTTON_2 | P0.24   | Secondary Button (Active Low)
+PIN_BUTTON   | P0.15   | User Button (Active Low)
 PIN_NEOPIXEL | P0.17   | Internal WS2812 LED Data
 PIN_VIB_MOTOR| P0.13   | Vibration Motor Control (Active High)
 PIN_BAT_VOLT | P0.04   | Battery Voltage ADC (AIN2)

@@ -2,13 +2,13 @@
 
 ## 🚀 Quick Start (First Use)
 
-1. **Power On**: Hold Button 1 for **3 Seconds** (Vibration feedback).
+1. **Power On**: Hold Button for **3 Seconds** (Vibration feedback).
 2. **Wait for GPS**: Go outdoors and wait for satellite lock (1-5 min).
    - *Screen says: "Searching SATs"*
    - *Status LED*: Red Pulse.
 3. **Confirm Home**: When GPS is found, the screen asks "SET HOME?".
-   - **Click Button 1**: Set **NEW** Home (Current Location).
-   - **Click Button 2**: Load **SAVED** Home (e.g., Car).
+   - **1 Click**: Set **NEW** Home (Current Location).
+   - **2 Clicks**: Load **SAVED** Home (e.g., Car).
 
 ## 🎯 Navigation Modes
 
@@ -34,22 +34,14 @@
 | **Bat %** | Battery Level. |
 | **C:Good** | Compass Calibration Status. |
 
-## 🔘 Button Functions
+## 🔘 Button Functions (Single Button Interface)
 
-**Button 1 (Main Action)**
 | Action | Gesture | Function |
 |--------|---------|----------|
-| **Wake Display** | 1 Click | Turn Screen ON |
-| **Set Waypoint** | 1 Click (When ON) | Manually mark a point of interest |
-| **Panic Mode** | Hold 3s | **IMMEDIATE** Return Mode (Safety Override) |
-| **Confirm Home** | 1 Click | (Startup only) Set New Home |
-
-**Button 2 (Auxiliary)**
-| Action | Gesture | Function |
-|--------|---------|----------|
-| **Cycle Screens** | 1 Click | Switch between Compass/Stats views |
-| **Open Menu** | Hold | Open Options Menu |
-| **Load Saved** | 1 Click | (Startup only) Load Previous Home |
+| **Wake / Menu** | 1 Click | Turn Screen ON / Cycle Menu Options |
+| **Select / Confirm** | Hold Button (1s) | Execute selected option |
+| **Panic Mode** | Hold Button (3s) | **IMMEDIATE** Return Mode (Safety Override) |
+| **Confirm Home** | 1x / 2x Clicks | (Startup) 1x=New Home, 2x=Load Saved |
 
 ## ⚡ Charging & Battery
 
