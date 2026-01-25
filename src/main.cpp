@@ -24,6 +24,25 @@ using namespace Adafruit_LittleFS_Namespace;
 #include <vector>
 #include <Adafruit_NeoPixel.h>
 
+// --- Data Structures ---
+struct Breadcrumb {
+    double lat;
+    double lon;
+};
+
+std::vector<Breadcrumb> breadcrumbs;
+
+enum AppMode {
+    MODE_EXPLORE,
+    MODE_RETURN,
+    MODE_CONFIRM_HOME,
+    MODE_SET_ID  // New Mode for ID Selection
+};
+
+// --- Globals for State ---
+AppMode currentMode = MODE_CONFIRM_HOME; 
+int targetBreadcrumbIndex = -1;
+
 // Define second I2C bus for External Compass
 TwoWire Wire1(NRF_TWIM1, NRF_TWIS1, SPIM1_SPIS1_TWIM1_TWIS1_SPI1_TWI1_IRQn, PIN_EXT_SDA, PIN_EXT_SCL);
 
@@ -141,8 +160,9 @@ void clearBreadcrumbs() {
 
 void saveBreadcrumb(double lat, double lon) {
     InternalFS.begin();
-    File file = InternalFS.open("/crumbs.dat", FILE_O_APPEND);
+    File file = InternalFS.open("/crumbs.dat", FILE_O_WRITE);
     if (file) {
+        file.seek(file.size()); // Simulate Append
         Breadcrumb b;
         b.lat = lat;
         b.lon = lon;
@@ -188,12 +208,7 @@ Adafruit_NeoPixel pixels(1, -1, NEO_GRB + NEO_KHZ800);
 U8G2_SH1107_128X128_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 
 // App Modes
-enum AppMode {
-    MODE_EXPLORE,
-    MODE_RETURN,
-    MODE_CONFIRM_HOME,
-    MODE_SET_ID  // New Mode for ID Selection
-};
+// Moved to Top
 
 // --- MENU DEFINITONS ---
 enum MenuState {
@@ -207,7 +222,7 @@ unsigned long lastMenuInteraction = 0;
 const unsigned long MENU_TIMEOUT = 4000; // Menü schließt automatisch nach 4s
 const unsigned long LONG_PRESS_THRESHOLD = 800; // ms für Bestätigung
 const unsigned long SOS_CONFIRM_TIME = 10000; // 10 Sekunden halten für SOS aus Menü
-AppMode currentMode = MODE_CONFIRM_HOME; // Start in Confirm Mode (Wait for GPS)
+// AppMode currentMode = MODE_CONFIRM_HOME; // Moved to top
 
 // Config Data
 int deviceID = -1; // -1 = Not Set
@@ -223,13 +238,9 @@ double currentHeading = 0.0;
 double displayedHeading = 0.0;
 unsigned long startTime = 0;
 
-// Breadcrumbs
-struct Breadcrumb {
-    double lat;
-    double lon;
-};
-std::vector<Breadcrumb> breadcrumbs;
-int targetBreadcrumbIndex = -1; 
+// Breadcrumbs Struct Moved to Top
+// std::vector<Breadcrumb> breadcrumbs; // Removed duplicate
+// int targetBreadcrumbIndex = -1; // Removed duplicate
 
 // Button Logic (Multi-click)
 int clickCount = 0;
@@ -295,7 +306,7 @@ void toggleSOS() {
     }
 }
 
-void enterDeepSleep() {
+void powerOff() {
     Serial.println("Entering Deep Sleep...");
     
     #if HAS_VIB_MOTOR
@@ -323,8 +334,7 @@ void enterDeepSleep() {
 
     // 4. LoRa Sleep - Removed
     // radio.sleep();
- delay(10);
-    }
+    delay(10);
 
     // 6. Configure Wakeup
     nrf_gpio_cfg_sense_input(PIN_BUTTON, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
@@ -1030,7 +1040,7 @@ void loop() {
                          if (deviceID > 5) deviceID = 1;
                      } else {
                          // Long Click: Save & Exit
-                         saveBuddyID(deviceID);
+                         // saveBuddyID(deviceID); // Feature removed
                          showFeedback("ID SAVED", "ID: " + String(deviceID), 3000);
                          currentMode = MODE_EXPLORE;
                         switch(currentMenuSelection) {
@@ -1068,7 +1078,7 @@ void loop() {
                  }
              }
         }
-    }
+    // } Removed accidental loop closure
     lastButtonState = currentButtonState;
 
     // Legacy "Confirm Home" logic

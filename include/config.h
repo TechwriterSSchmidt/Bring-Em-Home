@@ -21,6 +21,11 @@
 #define PIN_I2C_SDA      22  // P0.22
 #define PIN_I2C_SCL      20  // P0.20
 
+// External I2C (Same pins for now if sharing bus, or define separate if using softwire/second hardware)
+// For SuperMini, typically only one I2C is exposed easily. We map to same pins.
+#define PIN_EXT_SDA      PIN_I2C_SDA
+#define PIN_EXT_SCL      PIN_I2C_SCL
+
 // GPS Serial
 #define PIN_GPS_RX       8   // P0.08 (Conn to GPS TX)
 #define PIN_GPS_TX       6   // P0.06 (Conn to GPS RX)
@@ -35,7 +40,10 @@
 
 // Power Management
 #define PIN_BAT_VOLT     4   // P0.04 (AIN2)
-#define PIN_BAT_CHARGE   5   // P0.05 (Charging Status)
+// #define PIN_BAT_CHARGE   5   // P0.05 (Charging Status) - Disabled if not used
+// Mapping for code compatibility
+#define PIN_BAT_ADC      PIN_BAT_VOLT
+#define PIN_BAT_READ_CTRL -1 // Not used on SuperMini
 
 // Enable/Disable Features
 // #define HAS_RGB_LED      1 // Defined in code via PIN_NEOPIXEL check, but can be explicit here
