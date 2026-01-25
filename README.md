@@ -13,6 +13,7 @@ This device uses GPS and compass sensors to find its way back to a stored “sta
 - [Hardware Connections (SuperMini nRF52840)](#hardware-connections-supermini-nrf52840)
 - [Power Management & Optimization](#power-management--optimization)
 - [Features](#features)
+- [System Hardening](#system-hardening-measures-robustness-update)
 - [License](#license)
 
 ## Hardware Requirements
@@ -110,6 +111,26 @@ Calculated based on average power consumption of ~15mA (Screen Off, GPS Active) 
 - **Persistent Storage**: Never lose your home point or path if power fails (saved to Internal Flash).
 - **Return Logic**: Guidance back to the nearest previous point, then the next, retracing your steps.
 - **Simple UI**: Designed for ease of use under stress (Quick Return, High Contrast).
+
+## System Hardening Measures (Robustness Update)
+
+The firmware includes several "fail-safe" mechanisms to ensure reliability in critical outdoor scenarios:
+
+1.  **Crash Recovery (Watchdog)**
+    *   **Mechanism:** An independent hardware timer resets the system if the software hangs for >10 seconds.
+    *   **State Persistence:** The system continuously saves its Mode (Explore/Return) and target index. If a watchdog reset occurs, it wakes up and **immediately resumes** the mission (e.g., "Return Mode") instead of booting into idle.
+
+2.  **Data Integrity (Atomic Writes)**
+    *   **Risk:** Power loss during a file write (e.g., battery dies while saving Home) could corrupt data.
+    *   **Solution:** All critical data (`home.txt`, `state.txt`) uses an **atomic write strategy**. Data is written to a temporary file (`.tmp`) first, verified, and then atomically renamed. This ensures files are either fully updated or remain at their last valid state.
+
+3.  **Smart GPS Filtering**
+    *   **Drift Protection:** Breadcrumbs are only recorded if speed is > 0.5 km/h. This prevents the "spiderweb effect" (accumulating false points while sitting still).
+    *   **Quality Gate:** Points are rejected if HDOP (Signal Precision) is > 2.5, ensuring only reliable coordinates are stored.
+
+4.  **Hardware & Input Stability**
+    *   **Button Debouncing:** A software filter (50ms) eliminates noise from the physical button, preventing accidental double-clicks.
+    *   **Compass Quality Monitor:** The UI displays a `CAL` warning if the BNO085/55 reports low calibration status, alerting the user that the arrow might be inaccurate until the device is moved in a figure-8 pattern.
 
 ## License
 
