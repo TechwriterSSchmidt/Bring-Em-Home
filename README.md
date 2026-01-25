@@ -139,6 +139,10 @@ The firmware includes several "fail-safe" mechanisms to ensure reliability in cr
     *   **Button Debouncing:** A software filter (50ms) eliminates noise from the physical button, preventing accidental double-clicks.
     *   **Compass Quality Monitor:** The UI displays a `CAL` warning if the BNO085/55 reports low calibration status, alerting the user that the arrow might be inaccurate until the device is moved in a figure-8 pattern.
 
+5.  **Critical Battery Protection**
+    *   **Brownout Prevention:** The device continuously monitors battery voltage. If it drops below **3.0V**, the system saves all data, displays an "EMPTY!" warning, and enters Deep Sleep to prevent filesystem corruption and battery damage.
+    *   **Flash Verification:** Every breadcrumb write is verified. If the flash memory is full or busy, the status LED flashes red to alert the user immediately.
+
 ## License
 
 This project is licensed under the **PolyForm Noncommercial License 1.0.0**.

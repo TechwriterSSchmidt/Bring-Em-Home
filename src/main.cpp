@@ -11,6 +11,7 @@
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
 #include <nrf_wdt.h> // Watchdog Timer
+#include <cmath> // For copysign, abs
 
 using namespace Adafruit_LittleFS_Namespace;
 
@@ -77,6 +78,68 @@ uint8_t compassAccuracy = 0; // 0=Unreliable, 3=High Accuracy
 
 // Objects
 TinyGPSPlus gps;
+
+#if USE_BNO085
+// Pins: -1 = Reset Pin not used (or not connected to MCU)
+Adafruit_BNO08x bno08x(-1); 
+sh2_SensorValue_t sensorValue;
+#else
+Adafruit_BNO055 bno = Adafruit_BNO055(BNO055_ID, BNO055_ADDRESS, &Wire1);
+#endif
+
+// Dummy NeoPixel for now as it's disabled in config
+#if defined(PIN_NEOPIXEL) && (PIN_NEOPIXEL >= 0)
+Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+#else
+Adafruit_NeoPixel pixels(1, -1, NEO_GRB + NEO_KHZ800);
+#endif
+
+// U8g2 Display Object (SH1107 128x128 I2C)
+U8G2_SH1107_128X128_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+
+// App Modes
+// Moved to Top
+
+// --- MENU DEFINITONS ---
+enum MenuState {
+  MENU_NONE,
+  MENU_MODE_SWITCH, // Explore <-> Return
+  MENU_DIST_SWITCH, // 25m / 50m / 75m
+  MENU_POWER_OFF    // Ausschalten
+};
+
+MenuState currentMenuSelection = MENU_NONE;
+unsigned long lastMenuInteraction = 0;
+const unsigned long MENU_TIMEOUT = 4000; // Menü schließt automatisch nach 4s
+const unsigned long LONG_PRESS_THRESHOLD = 800; // ms für Bestätigung
+const unsigned long SOS_CONFIRM_TIME = 10000; // 10 Sekunden halten für SOS aus Menü
+// AppMode currentMode = MODE_CONFIRM_HOME; // Moved to top
+
+// Config Data
+int deviceID = -1; // -1 = Not Set
+
+// Navigation Data
+float breadcrumbDistance = DEFAULT_BREADCRUMB_DIST;
+double homeLat = 0.0;
+double homeLon = 0.0;
+double savedHomeLat = 0.0;
+double savedHomeLon = 0.0;
+bool hasSavedHome = false;
+bool hasHome = false;
+double currentHeading = 0.0;
+double currentPitch = 0.0; // Added Pitch for Smart Wake
+double displayedHeading = 0.0;
+unsigned long startTime = 0;
+
+// Breadcrumbs Struct Moved to Top
+
+// Button Logic (Multi-click)
+int clickCount = 0;
+unsigned long lastClickTime = 0;
+
+// Compass Calibration State
+bool isCalibrated = false;
+bool calibSaved = false;
 
 // --- FileSystem Helpers ---
 // EXPERIMENTAL: Atomic Write Strategy to prevent corruption
@@ -179,10 +242,21 @@ void saveBreadcrumb(double lat, double lon) {
         Breadcrumb b;
         b.lat = lat;
         b.lon = lon;
-        file.write((uint8_t*)&b, sizeof(Breadcrumb));
+        size_t written = file.write((uint8_t*)&b, sizeof(Breadcrumb));
         file.flush(); // Ensure data hits flash
         file.close();
-        // Serial.println("Crumb Saved"); 
+        
+        if (written != sizeof(Breadcrumb)) {
+             Serial.println("CRITICAL: Flash Write Failed (Full?)");
+             // Visual Error signal
+             #if HAS_RGB_LED
+             pixels.setPixelColor(0, pixels.Color(255, 0, 0)); pixels.show(); delay(100);
+             pixels.setPixelColor(0, pixels.Color(0, 0, 0)); pixels.show(); delay(100);
+             pixels.setPixelColor(0, pixels.Color(255, 0, 0)); pixels.show();
+             #endif
+        }
+    } else {
+        Serial.println("CRITICAL: FS Open Failed!");
     }
 }
 
@@ -202,67 +276,7 @@ void loadBreadcrumbs() {
         Serial.println("Loaded " + String(breadcrumbs.size()) + " breadcrumbs.");
     }
 }
-#if USE_BNO085
-// Pins: -1 = Reset Pin not used (or not connected to MCU)
-Adafruit_BNO08x bno08x(-1); 
-sh2_SensorValue_t sensorValue;
-#else
-Adafruit_BNO055 bno = Adafruit_BNO055(BNO055_ID, BNO055_ADDRESS, &Wire1);
-#endif
-
-// Dummy NeoPixel for now as it's disabled in config
-#if defined(PIN_NEOPIXEL) && (PIN_NEOPIXEL >= 0)
-Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
-#else
-Adafruit_NeoPixel pixels(1, -1, NEO_GRB + NEO_KHZ800);
-#endif
-
-// U8g2 Display Object (SH1107 128x128 I2C)
-U8G2_SH1107_128X128_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
-
-// App Modes
-// Moved to Top
-
-// --- MENU DEFINITONS ---
-enum MenuState {
-  MENU_NONE,
-  MENU_MODE_SWITCH, // Explore <-> Return
-  MENU_DIST_SWITCH, // 25m / 50m / 75m
-  MENU_POWER_OFF    // Ausschalten
-};
-
-MenuState currentMenuSelection = MENU_NONE;
-unsigned long lastMenuInteraction = 0;
-const unsigned long MENU_TIMEOUT = 4000; // Menü schließt automatisch nach 4s
-const unsigned long LONG_PRESS_THRESHOLD = 800; // ms für Bestätigung
-const unsigned long SOS_CONFIRM_TIME = 10000; // 10 Sekunden halten für SOS aus Menü
-// AppMode currentMode = MODE_CONFIRM_HOME; // Moved to top
-
-// Config Data
-int deviceID = -1; // -1 = Not Set
-
-// Navigation Data
-float breadcrumbDistance = DEFAULT_BREADCRUMB_DIST;
-double homeLat = 0.0;
-double homeLon = 0.0;
-double savedHomeLat = 0.0;
-double savedHomeLon = 0.0;
-bool hasSavedHome = false;
-bool hasHome = false;
-double currentHeading = 0.0;
-double currentPitch = 0.0; // Added Pitch for Smart Wake
-double displayedHeading = 0.0;
-unsigned long startTime = 0;
-
-// Breadcrumbs Struct Moved to Top
-
-// Button Logic (Multi-click)
-int clickCount = 0;
-unsigned long lastClickTime = 0;
-
-// Compass Calibration State
-bool isCalibrated = false;
-bool calibSaved = false;
+// Globals moved to top
 
 // --- Non-Blocking Globals ---
 volatile bool transmissionFlag = false;
@@ -895,12 +909,24 @@ void loop() {
         lastCalibCheck = millis();
     }
 
-    // --- Charging Detection ---
+    // --- Charging Detection & Critical Battery Protect ---
     static unsigned long lastChargeCheck = 0;
     bool shouldCheck = (millis() < CHARGE_CHECK_DURATION) || isCharging;
 
     if (shouldCheck && (millis() - lastChargeCheck > CHARGE_CHECK_INTERVAL)) {
         float voltage = readBatteryVoltage();
+        
+        // Safety Cutoff (Protect LiPo)
+        if (!isCharging && voltage < 3.0) {
+             Serial.println("CRITICAL: Battery Low (<3.0V). Shutdown.");
+             u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF);
+             u8g2.clearBuffer();
+             u8g2.setFont(u8g2_font_ncenB14_tr);
+             u8g2.drawStr(10, 64, "EMPTY!");
+             u8g2.sendBuffer();
+             delay(3000);
+             powerOff(); 
+        }
         
         if (voltage > 4.3) { 
              if (!isCharging) {
@@ -968,7 +994,7 @@ void loop() {
                 // Note: Depending on mounting, this might need to swap with Roll.
                 // Assuming standard: Flat = 0.
                 float sinp = 2 * (r * j - k * i);
-                if (abs(sinp) >= 1) currentPitch = copysign(M_PI / 2, sinp); // Use 90 degrees if out of range
+                if (fabs(sinp) >= 1) currentPitch = (sinp > 0) ? (PI / 2) : -(PI / 2); // Use 90 degrees if out of range
                 else currentPitch = asin(sinp);
                 currentPitch = currentPitch * 180.0 / PI;
 
@@ -1004,7 +1030,7 @@ void loop() {
     // If device is DROPPED (Vertical) -> Fast Sleep
     
     if (hasCompass) {
-        float absPitch = abs(currentPitch);
+        float absPitch = fabs(currentPitch);
         
         // Hysteresis Logic for State Stability (Schmitt Trigger)
         // If Display is ON, we are generous (keep it on up to 45 deg)
@@ -1247,7 +1273,7 @@ void loop() {
                     if (breadcrumbs.size() >= 2) {
                         Breadcrumb prev = breadcrumbs[breadcrumbs.size()-2];
                         double prevSegmentBearing = gps.courseTo(prev.lat, prev.lon, last.lat, last.lon);
-                        double diff = abs(currentSegmentBearing - prevSegmentBearing);
+                        double diff = fabs(currentSegmentBearing - prevSegmentBearing);
                         if (diff > 180) diff = 360 - diff;
                         if (diff > BREADCRUMB_TURN_THRESHOLD) shouldSave = true;
                     }

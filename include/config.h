@@ -36,6 +36,7 @@
 
 // Feedback (Outputs)
 #define PIN_VIB_MOTOR    13  // P0.13 (Vibration Motor)
+#undef PIN_NEOPIXEL          // Remove default definition from variant.h
 #define PIN_NEOPIXEL     29  // P0.29 (External WS2812 Data)
 
 // Power Management
