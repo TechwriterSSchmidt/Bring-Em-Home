@@ -135,6 +135,7 @@ The firmware includes several "fail-safe" mechanisms to ensure reliability in cr
     *   **Quality Gate:** Points are rejected if HDOP (Signal Precision) is > 2.5, ensuring only reliable coordinates are stored.
 
 4.  **Hardware & Input Stability**
+    *   **Smart Wake Hysteresis:** To prevent the screen from flickering ON/OFF when holding the device near the tilt threshold, a **Schmitt Trigger** logic is used. The screen stays ON up to 45° tilt once active, and waits for a stable **2-second vertical drop** before turning OFF.
     *   **Button Debouncing:** A software filter (50ms) eliminates noise from the physical button, preventing accidental double-clicks.
     *   **Compass Quality Monitor:** The UI displays a `CAL` warning if the BNO085/55 reports low calibration status, alerting the user that the arrow might be inaccurate until the device is moved in a figure-8 pattern.
 

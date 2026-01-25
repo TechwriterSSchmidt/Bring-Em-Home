@@ -1005,27 +1005,38 @@ void loop() {
     
     if (hasCompass) {
         float absPitch = abs(currentPitch);
-        bool isFlat = (absPitch < TILT_WAKE_ANGLE);
+        
+        // Hysteresis Logic for State Stability (Schmitt Trigger)
+        // If Display is ON, we are generous (keep it on up to 45 deg)
+        // If Display is OFF, we are strict (must be flat < 35 deg to wake)
+        float threshold = isDisplayOn ? (TILT_WAKE_ANGLE + TILT_HYSTERESIS) : TILT_WAKE_ANGLE;
+        bool isFlat = (absPitch < threshold);
         
         if (isFlat) {
             // User is looking at screen: Keep awake
-            if (!isDisplayOn && (millis() - lastInteractionTime > 1000)) { // Debounce wake
+            // Immediate Wake (No lag when lifting)
+            if (!isDisplayOn) {
                  u8g2.setPowerSave(DISPLAY_POWER_SAVE_OFF);
                  isDisplayOn = true;
             }
             lastInteractionTime = millis(); // Refresh standard timeout
-            lastVerticalTime = millis();    // Reset vertical timer
+            lastVerticalTime = millis();    // Reset "Time since flat"
         } else {
-             // Device is tilted away/hanging
-             if (isDisplayOn && (millis() - lastMenuInteraction > 2000)) { // Don't kill if in menu!
-                 // If we have been vertical for > TILT_SLEEP_DELAY (2s), Turn Off
-                 if (millis() - lastVerticalTime > TILT_SLEEP_DELAY) {
+            // Screen is tilted away (Hanging)
+            if (isDisplayOn) {
+                 bool menuActive = (currentMenuSelection != MENU_NONE) || (millis() - lastMenuInteraction < 2000);
+                 
+                 // Turn OFF only if:
+                 // 1. Not in menu
+                 // 2. Tilted for more than TILT_SLEEP_DELAY (2s time-based Hysteresis)
+                 if (!menuActive && (millis() - lastVerticalTime > TILT_SLEEP_DELAY)) {
                       u8g2.setPowerSave(DISPLAY_POWER_SAVE_ON);
                       isDisplayOn = false;
                  }
-             } else {
-                 lastVerticalTime = millis();
-             }
+            } else {
+                // If display is already off, keep tracking lastVerticalTime to prevent instant sleep-lock scenarios
+                lastVerticalTime = millis(); 
+            }
         }
     }
     
