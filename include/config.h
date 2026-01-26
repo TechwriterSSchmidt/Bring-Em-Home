@@ -34,7 +34,7 @@
 #define PIN_BUTTON       PIN_BUTTON_1 
 
 // Feedback (Outputs)
-#define PIN_VIB_MOTOR    D1  // P0.03
+#define PIN_VIB_MOTOR    D1  // P0.03 (External transistor driver required/present)
 #undef PIN_NEOPIXEL          // Remove default definition
 #define PIN_NEOPIXEL     D2  // P0.28
 
@@ -45,7 +45,7 @@
 
 // Mapping for compatibility
 #define PIN_BAT_ADC      PIN_BAT_READ
-#define PIN_BAT_READ_CTRL P0_14 // Active High to enable battery read divider
+#define PIN_BAT_READ_CTRL P0_14 // Set LOW to enable battery read divider (Active LOW)
 
 // Enable/Disable Features
 // #define HAS_RGB_LED      1 // Defined in code via PIN_NEOPIXEL check, but can be explicit here
